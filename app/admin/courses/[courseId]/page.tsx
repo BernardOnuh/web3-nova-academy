@@ -4,12 +4,13 @@
 const BASE = process.env.NEXT_PUBLIC_API_BASE!;
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, BookOpen, FileText, CheckSquare,
-  Clock, FileVideo, Loader2, UploadCloud, Trash2, ExternalLink, Calendar, Plus, ChevronDown, ChevronUp, User
+  Clock, FileVideo, Loader2, UploadCloud, Trash2, ExternalLink, Calendar, Plus, ChevronDown, ChevronUp, User, GraduationCap
 } from 'lucide-react';
+import CurriculumTab from '@/app/admin/courses/components/CurriculumTab'; // ✅ adjust this import path to wherever your CurriculumTab file lives
 
 interface Course { id: string; name: string; cohortId: string; }
 interface Material { id: string; title: string; type: string; cloudinaryUrl: string; courseId: string; createdAt: string; }
@@ -19,13 +20,23 @@ interface Session { id: string; date: string; allowedIp: string; active: boolean
 interface Assessment { id: string; title: string; description: string; timeLimit: number; courseId: string; questions?: string; }
 interface MCQQuestion { q: string; options: [string, string, string, string]; answer: string; }
 
+// ✅ CurriculumWeek type needed for the curriculum tab state
+interface CurriculumWeek {
+  id: string; week: number; title: string; description: string | null;
+  courseId: string; cohortId: string;
+  assignment?: any; materials?: any[];
+}
+
 export default function CourseDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams(); // ✅ reads ?cohortId= from the URL
   const courseId = params.courseId as string;
 
   const [courseName, setCourseName] = useState<string>("Loading Course...");
-  const [courseCohortId, setCourseCohortId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'materials' | 'assignments' | 'assessments' | 'attendance'>('materials');
+  const [courseCohortId, setCourseCohortId] = useState<string>(
+    searchParams.get('cohortId') ?? '' // ✅ seed from URL immediately so it's available before fetch completes
+  );
+  const [activeTab, setActiveTab] = useState<'materials' | 'assignments' | 'assessments' | 'attendance' | 'curriculum'>('materials');
   const [isLoading, setIsLoading] = useState(true);
 
   // --- States ---
@@ -33,6 +44,7 @@ export default function CourseDetailPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [curriculumWeeks, setCurriculumWeeks] = useState<CurriculumWeek[]>([]); // ✅ curriculum state
 
   // Materials Upload State
   const [isUploading, setIsUploading] = useState(false);
@@ -82,7 +94,8 @@ export default function CourseDetailPage() {
           const currentCourse = courses.find((c: any) => c.id === courseId);
           if (currentCourse) {
             setCourseName(currentCourse.name);
-            setCourseCohortId(currentCourse.cohortId || '');
+            // ✅ prefer URL param, fall back to DB value
+            setCourseCohortId(prev => prev || currentCourse.cohortId || '');
           }
         }
 
@@ -112,6 +125,15 @@ export default function CourseDetailPage() {
         if (testRes && testRes.ok) {
           const testData = await testRes.json();
           if (Array.isArray(testData)) setAssessments(testData.filter(t => t.courseId === courseId));
+        }
+
+        // ✅ 6. Fetch Curriculum weeks
+        const currRes = await fetch(`${BASE}/admin/curriculum?cohortId=${courseCohortId}&courseId=${courseId}`, { headers }).catch(() => null);
+        if (currRes && currRes.ok) {
+          const currData = await currRes.json();
+          if (Array.isArray(currData)) {
+            setCurriculumWeeks(currData.sort((a: CurriculumWeek, b: CurriculumWeek) => a.week - b.week));
+          }
         }
 
       } catch (error) {
@@ -368,7 +390,7 @@ export default function CourseDetailPage() {
       const newTest = await response.json();
       setAssessments([newTest, ...assessments]);
       setIsAddingAssessment(false);
-      setAssessmentData({ title: '', description: '', timeLimit: 30 });
+      setAssessmentData({ title: '', description: '', timeLimit: 30, mode: 'mcq' });
     } catch (error: any) { alert(error.message); } finally { setIsSubmitting(false); }
   };
 
@@ -389,7 +411,8 @@ export default function CourseDetailPage() {
           { id: 'materials', label: 'Materials', icon: BookOpen },
           { id: 'assignments', label: 'Assignments', icon: CheckSquare },
           { id: 'assessments', label: 'Assessments', icon: FileText },
-          { id: 'attendance', label: 'Attendance', icon: Clock }
+          { id: 'attendance', label: 'Attendance', icon: Clock },
+          { id: 'curriculum', label: 'Curriculum', icon: GraduationCap }, // ✅ new tab
         ].map((tab) => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors border-b-2 whitespace-nowrap ${
@@ -505,7 +528,6 @@ export default function CourseDetailPage() {
                       const subs = submissions[ass.id] || [];
                       return (
                         <div key={ass.id} className="bg-[#0A0A0A] border border-gray-800 rounded-xl overflow-hidden">
-                          {/* Assignment row */}
                           <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
                               <h4 className="text-white font-bold text-lg">{ass.title}</h4>
@@ -526,7 +548,6 @@ export default function CourseDetailPage() {
                             </div>
                           </div>
 
-                          {/* Submissions panel */}
                           {isOpen && (
                             <div className="border-t border-gray-800 animate-in fade-in duration-200">
                               {loadingSubmissions === ass.id ? (
@@ -540,7 +561,6 @@ export default function CourseDetailPage() {
                                     const isGraded = sub.grade != null;
                                     return (
                                       <div key={sub.id} className="p-5 flex flex-col md:flex-row md:items-start gap-4">
-                                        {/* Student info */}
                                         <div className="flex items-center gap-3 min-w-[200px]">
                                           <div className="w-9 h-9 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center text-xs font-bold shrink-0">
                                             <User size={16} />
@@ -550,19 +570,14 @@ export default function CourseDetailPage() {
                                             <p className="text-gray-500 text-xs">{new Date(sub.submittedAt).toLocaleDateString()}</p>
                                           </div>
                                         </div>
-
-                                        {/* File link */}
                                         <a href={sub.cloudinaryUrl} target="_blank" rel="noopener noreferrer"
                                           className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm shrink-0 mt-1">
                                           <ExternalLink size={14} /> View File
                                         </a>
-
-                                        {/* Grade + Feedback */}
                                         <div className="flex flex-1 items-end gap-3 flex-wrap">
                                           <div>
                                             <label className="block text-xs text-gray-500 uppercase mb-1">Grade (%)</label>
-                                            <input
-                                              type="number" min="0" max="100"
+                                            <input type="number" min="0" max="100"
                                               placeholder={isGraded ? String(sub.grade) : '—'}
                                               className="w-24 bg-[#111111] border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-purple-500"
                                               value={g.grade}
@@ -571,19 +586,15 @@ export default function CourseDetailPage() {
                                           </div>
                                           <div className="flex-1 min-w-[160px]">
                                             <label className="block text-xs text-gray-500 uppercase mb-1">Feedback</label>
-                                            <input
-                                              type="text"
-                                              placeholder="Optional comment..."
+                                            <input type="text" placeholder="Optional comment..."
                                               className="w-full bg-[#111111] border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-purple-500"
                                               value={g.feedback}
                                               onChange={e => setGrading(prev => ({ ...prev, [sub.id]: { ...g, feedback: e.target.value } }))}
                                             />
                                           </div>
-                                          <button
-                                            onClick={() => handleSaveGrade(sub.id)}
+                                          <button onClick={() => handleSaveGrade(sub.id)}
                                             disabled={savingGrade === sub.id || !g.grade}
-                                            className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-900/50 text-white px-4 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors shrink-0"
-                                          >
+                                            className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-900/50 text-white px-4 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors shrink-0">
                                             {savingGrade === sub.id ? <Loader2 size={14} className="animate-spin" /> : isGraded ? 'Update' : 'Save Grade'}
                                           </button>
                                         </div>
@@ -645,10 +656,8 @@ export default function CourseDetailPage() {
                           </div>
                         </div>
                         {sess.active && (
-                          <button
-                            onClick={() => handleCloseSession(sess.id)}
-                            className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm font-medium transition-colors border border-red-500/20"
-                          >
+                          <button onClick={() => handleCloseSession(sess.id)}
+                            className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm font-medium transition-colors border border-red-500/20">
                             Close Session
                           </button>
                         )}
@@ -671,7 +680,6 @@ export default function CourseDetailPage() {
 
                 {isAddingAssessment && (
                   <form onSubmit={handleCreateAssessment} className="mb-8 bg-[#0A0A0A] p-6 rounded-xl border border-gray-800 space-y-4">
-                    {/* Mode toggle */}
                     <div>
                       <label className="block text-xs font-medium text-gray-400 mb-2 uppercase">Assessment Mode</label>
                       <div className="flex gap-2">
@@ -714,7 +722,6 @@ export default function CourseDetailPage() {
 
                       return (
                         <div key={assessment.id} className="bg-[#0A0A0A] border border-gray-800 rounded-xl overflow-hidden">
-                          {/* Header row */}
                           <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-start gap-4">
                               <div className="w-12 h-12 bg-purple-500/10 text-purple-400 rounded-lg flex items-center justify-center shrink-0">
@@ -735,18 +742,14 @@ export default function CourseDetailPage() {
                             </div>
                             <div className="flex items-center gap-2 shrink-0 flex-wrap">
                               {mode === 'mcq' ? (
-                                <button
-                                  onClick={() => toggleQuestions(assessment.id, assessment.questions)}
-                                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors border ${isQOpen ? 'border-purple-500 bg-purple-500/10 text-purple-400' : 'border-gray-700 bg-gray-800 hover:bg-gray-700 text-white'}`}
-                                >
+                                <button onClick={() => toggleQuestions(assessment.id, assessment.questions)}
+                                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors border ${isQOpen ? 'border-purple-500 bg-purple-500/10 text-purple-400' : 'border-gray-700 bg-gray-800 hover:bg-gray-700 text-white'}`}>
                                   {isQOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                                   {existingQCount > 0 ? 'Edit Questions' : 'Add Questions'}
                                 </button>
                               ) : (
-                                <button
-                                  onClick={() => { setOpenPaper(isPaperOpen ? null : assessment.id); setOpenQuestions(null); setPaperFile(null); }}
-                                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors border ${isPaperOpen ? 'border-orange-500 bg-orange-500/10 text-orange-400' : 'border-gray-700 bg-gray-800 hover:bg-gray-700 text-white'}`}
-                                >
+                                <button onClick={() => { setOpenPaper(isPaperOpen ? null : assessment.id); setOpenQuestions(null); setPaperFile(null); }}
+                                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors border ${isPaperOpen ? 'border-orange-500 bg-orange-500/10 text-orange-400' : 'border-gray-700 bg-gray-800 hover:bg-gray-700 text-white'}`}>
                                   <UploadCloud size={14} />
                                   {paperUrl ? 'Replace Paper' : 'Upload Paper'}
                                 </button>
@@ -754,7 +757,6 @@ export default function CourseDetailPage() {
                             </div>
                           </div>
 
-                          {/* MCQ Question Builder */}
                           {isQOpen && (
                             <div className="border-t border-gray-800 p-5 space-y-4 animate-in fade-in duration-200">
                               <p className="text-xs text-gray-500 uppercase font-medium">Question Builder</p>
@@ -762,25 +764,19 @@ export default function CourseDetailPage() {
                                 <div key={qi} className="bg-[#111111] border border-gray-800 rounded-xl p-4 space-y-3">
                                   <div className="flex items-start justify-between gap-3">
                                     <span className="text-blue-400 font-bold text-sm shrink-0">Q{qi + 1}.</span>
-                                    <input
-                                      type="text" placeholder="Question text..." value={q.q}
+                                    <input type="text" placeholder="Question text..." value={q.q}
                                       className="flex-1 bg-[#0A0A0A] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-purple-500"
-                                      onChange={e => updateQuestion(assessment.id, qi, 'q', e.target.value)}
-                                    />
+                                      onChange={e => updateQuestion(assessment.id, qi, 'q', e.target.value)} />
                                     <button onClick={() => removeQuestion(assessment.id, qi)} className="text-gray-600 hover:text-red-400 transition-colors shrink-0"><Trash2 size={15} /></button>
                                   </div>
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-6">
                                     {q.options.map((opt, oi) => (
                                       <label key={oi} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${q.answer === opt && opt ? 'border-green-500/50 bg-green-500/5' : 'border-gray-700'}`}>
                                         <input type="radio" name={`q-${assessment.id}-${qi}`} checked={q.answer === opt && !!opt}
-                                          onChange={() => opt && updateQuestion(assessment.id, qi, 'answer', opt)}
-                                          className="accent-green-500 shrink-0"
-                                        />
-                                        <input
-                                          type="text" placeholder={`Option ${oi + 1}`} value={opt}
+                                          onChange={() => opt && updateQuestion(assessment.id, qi, 'answer', opt)} className="accent-green-500 shrink-0" />
+                                        <input type="text" placeholder={`Option ${oi + 1}`} value={opt}
                                           className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-gray-600"
-                                          onChange={e => { updateOption(assessment.id, qi, oi, e.target.value); if (q.answer === opt) updateQuestion(assessment.id, qi, 'answer', e.target.value); }}
-                                        />
+                                          onChange={e => { updateOption(assessment.id, qi, oi, e.target.value); if (q.answer === opt) updateQuestion(assessment.id, qi, 'answer', e.target.value); }} />
                                       </label>
                                     ))}
                                   </div>
@@ -800,7 +796,6 @@ export default function CourseDetailPage() {
                             </div>
                           )}
 
-                          {/* File Upload Paper */}
                           {isPaperOpen && (
                             <div className="border-t border-gray-800 p-5 space-y-3 animate-in fade-in duration-200">
                               {paperUrl && (
@@ -814,8 +809,7 @@ export default function CourseDetailPage() {
                                   <label className="block text-xs text-gray-500 uppercase mb-1">Question Paper (PDF / DOC)</label>
                                   <input type="file" accept=".pdf,.doc,.docx"
                                     className="w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-orange-500/10 file:text-orange-400 file:text-sm"
-                                    onChange={e => setPaperFile(e.target.files?.[0] || null)}
-                                  />
+                                    onChange={e => setPaperFile(e.target.files?.[0] || null)} />
                                 </div>
                                 <button onClick={() => handleUploadPaper(assessment.id)} disabled={!paperFile || uploadingPaper}
                                   className="flex items-center gap-1.5 px-5 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-900/50 text-white rounded-lg text-sm font-bold transition-colors shrink-0">
@@ -830,6 +824,16 @@ export default function CourseDetailPage() {
                   </div>
                 ) : (!isAddingAssessment && <div className="text-center py-12 text-gray-500 flex flex-col items-center"><FileText size={48} className="mb-4 text-gray-700" /><p>No assessments created yet.</p></div>)}
               </div>
+            )}
+
+            {/* ✅ CURRICULUM TAB — passes cohortId from URL so seeding works */}
+            {activeTab === 'curriculum' && (
+              <CurriculumTab
+                courseId={courseId}
+                courseCohortId={courseCohortId}
+                curriculumWeeks={curriculumWeeks}
+                setCurriculumWeeks={setCurriculumWeeks}
+              />
             )}
           </>
         )}

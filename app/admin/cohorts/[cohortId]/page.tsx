@@ -217,7 +217,7 @@ export default function CohortDetailPage() {
                           Course ID: {course.id.substring(0,8)}...
                         </p>
                       </div>
-                      <Link href={`/admin/courses/${course.id}`} className="text-purple-400 text-sm font-medium hover:text-purple-300 w-fit">
+                      <Link href={`/admin/courses/${course.id}?cohortId=${cohortId}`} className="text-purple-400 text-sm font-medium hover:text-purple-300 w-fit">
                         Manage Course &rarr;
                       </Link>
                       <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-colors" />

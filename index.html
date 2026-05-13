@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Academic Portal — API Docs</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --muted: #6a6a8a;
+    --accent: #7c6af7;
+    --accent2: #f76a8a;
+    --green: #4ade80;
+    --yellow: #fbbf24;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --orange: #fb923c;
+
+    --get: #4ade80;
+    --post: #60a5fa;
+    --patch: #fbbf24;
+    --delete: #f87171;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+  }
+
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header h1 {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    line-height: 1.2;
+  }
+
+  .sidebar-header p {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .base-url-input {
+    margin: 12px 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .base-url-input label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  .base-url-input input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .base-url-input input:focus { border-color: var(--accent); }
+
+  .token-input {
+    margin: 8px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .token-input label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  .token-input input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .token-input input:focus { border-color: var(--accent); }
+
+  .nav-section {
+    padding: 12px 20px 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 20px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(124,106,247,0.08); }
+
+  .nav-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-get    { background: rgba(74,222,128,0.15);  color: var(--get);    }
+  .badge-post   { background: rgba(96,165,250,0.15);  color: var(--post);   }
+  .badge-patch  { background: rgba(251,191,36,0.15);  color: var(--patch);  }
+  .badge-delete { background: rgba(248,113,113,0.15); color: var(--delete); }
+
+  /* ── Main content ── */
+  #main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 40px;
+    max-width: 900px;
+  }
+
+  #main::-webkit-scrollbar { width: 6px; }
+  #main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .section-title {
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, var(--text), var(--muted));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .section-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 28px;
+    line-height: 1.6;
+  }
+
+  /* ── Endpoint card ── */
+  .endpoint {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .endpoint:hover { border-color: var(--accent); }
+
+  .endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .method-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 5px;
+    min-width: 58px;
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  .method-GET    { background: rgba(74,222,128,0.15);  color: var(--get);    border: 1px solid rgba(74,222,128,0.3);  }
+  .method-POST   { background: rgba(96,165,250,0.15);  color: var(--post);   border: 1px solid rgba(96,165,250,0.3);  }
+  .method-PATCH  { background: rgba(251,191,36,0.15);  color: var(--patch);  border: 1px solid rgba(251,191,36,0.3);  }
+  .method-DELETE { background: rgba(248,113,113,0.15); color: var(--delete); border: 1px solid rgba(248,113,113,0.3); }
+
+  .endpoint-path {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .endpoint-desc {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .chevron {
+    color: var(--muted);
+    font-size: 12px;
+    transition: transform 0.2s;
+  }
+
+  .endpoint.open .chevron { transform: rotate(90deg); }
+
+  .endpoint-body {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 20px 18px;
+  }
+
+  .endpoint.open .endpoint-body { display: block; }
+
+  /* ── Form fields ── */
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .field label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .field label .required {
+    color: var(--red);
+    font-size: 10px;
+  }
+
+  .field label .field-type {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    background: rgba(124,106,247,0.1);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .field input,
+  .field textarea,
+  .field select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: 7px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+
+  .field input:focus,
+  .field textarea:focus,
+  .field select:focus { border-color: var(--accent); }
+
+  .field textarea { resize: vertical; min-height: 80px; }
+
+  .field select option { background: var(--surface2); }
+
+  /* ── Buttons ── */
+  .btn-send {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.03em;
+  }
+
+  .btn-send:hover { background: #9b8cf9; transform: translateY(-1px); }
+  .btn-send:active { transform: translateY(0); }
+  .btn-send:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-copy {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.2s;
+  }
+
+  .btn-copy:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Response ── */
+  .response-box {
+    margin-top: 16px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .response-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .status-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .status-2xx { background: rgba(74,222,128,0.15); color: var(--green); }
+  .status-4xx { background: rgba(248,113,113,0.15); color: var(--red); }
+  .status-5xx { background: rgba(251,191,36,0.15); color: var(--yellow); }
+
+  .response-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .response-body {
+    background: #080810;
+    padding: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre;
+  }
+
+  /* JSON syntax highlighting */
+  .json-key    { color: #c792ea; }
+  .json-string { color: #c3e88d; }
+  .json-number { color: #f78c6c; }
+  .json-bool   { color: #89ddff; }
+  .json-null   { color: #ff5370; }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+
+  .note {
+    background: rgba(124,106,247,0.08);
+    border: 1px solid rgba(124,106,247,0.2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  .note strong { color: var(--accent); }
+
+  /* ── Loading spinner ── */
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Overview page ── */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .overview-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+
+  .overview-card h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .overview-card .big-num {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .overview-card p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  .role-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .role-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .role-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .tag-green  { background: rgba(74,222,128,0.15);  color: var(--green);  }
+  .tag-blue   { background: rgba(96,165,250,0.15);  color: var(--blue);   }
+  .tag-orange { background: rgba(251,146,60,0.15);  color: var(--orange); }
+  .tag-purple { background: rgba(124,106,247,0.15); color: var(--accent); }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<nav id="sidebar">
+  <div class="sidebar-header">
+    <h1>Academic Portal</h1>
+    <p>API Reference v1.0</p>
+  </div>
+
+  <div class="base-url-input">
+    <label>Base URL</label>
+    <input id="baseUrl" type="text" value="https://cohort-portal-cmhj.onrender.com" placeholder="http://localhost:3012">
+  </div>
+
+  <div class="token-input">
+    <label>Bearer Token</label>
+    <input id="globalToken" type="text" placeholder="Paste JWT after login">
+  </div>
+
+  <div class="nav-section">Overview</div>
+  <div class="nav-item active" onclick="show('overview', this)">📋 Introduction</div>
+
+  <div class="nav-section">Auth</div>
+  <div class="nav-item" onclick="show('auth', this)"><span class="nav-badge badge-post">POST</span> Login</div>
+
+  <div class="nav-section">Admin</div>
+  <div class="nav-item" onclick="show('cohorts', this)">Cohorts</div>
+  <div class="nav-item" onclick="show('courses', this)">Courses</div>
+  <div class="nav-item" onclick="show('admins-mgmt', this)">Admins / Tutors</div>
+  <div class="nav-item" onclick="show('students', this)">Students</div>
+  <div class="nav-item" onclick="show('curriculum-admin', this)">Curriculum</div>
+  <div class="nav-item" onclick="show('assignments-admin', this)">Assignments</div>
+  <div class="nav-item" onclick="show('assessments-admin', this)">Assessments</div>
+  <div class="nav-item" onclick="show('materials-admin', this)">Materials</div>
+  <div class="nav-item" onclick="show('attendance-admin', this)">Attendance</div>
+  <div class="nav-item" onclick="show('payments-admin', this)">💳 Payments (Admin)</div>
+
+  <div class="nav-section">Student</div>
+  <div class="nav-item" onclick="show('curriculum-student', this)">Curriculum</div>
+  <div class="nav-item" onclick="show('assignments-student', this)">Assignments</div>
+  <div class="nav-item" onclick="show('assessments-student', this)">Assessments</div>
+  <div class="nav-item" onclick="show('materials-student', this)">Materials</div>
+  <div class="nav-item" onclick="show('attendance-student', this)">Attendance</div>
+  <div class="nav-item" onclick="show('grades', this)">Grades</div>
+  <div class="nav-item" onclick="show('payments-student', this)">💳 Payments (Student)</div>
+</nav>
+
+<!-- ── Main ── -->
+<main id="main">
+
+  <!-- Overview -->
+  <div id="s-overview" class="section active">
+    <div class="section-title">Academic Portal API</div>
+    <p class="section-desc">Interactive API documentation. Set your Base URL and Bearer Token in the sidebar, then expand any endpoint to test it live.</p>
+
+    <div class="overview-grid">
+      <div class="overview-card">
+        <h3>Base URL (Prod)</h3>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);margin-top:4px;">https://cohort-portal-cmhj.onrender.com</div>
+        <p>Dev: http://localhost:3012</p>
+      </div>
+      <div class="overview-card">
+        <h3>Auth</h3>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);margin-top:4px;">Bearer &lt;JWT&gt;</div>
+        <p>7-day token. Login first, paste token in sidebar.</p>
+      </div>
+      <div class="overview-card">
+        <h3>Default Password</h3>
+        <div class="big-num" style="font-size:20px;">First name</div>
+        <p>"Jane Okonkwo" → password: <code style="color:var(--green)">jane</code></p>
+      </div>
+      <div class="overview-card">
+        <h3>Rate Limit</h3>
+        <div class="big-num">10</div>
+        <p>Login attempts per 15 minutes per IP</p>
+      </div>
+    </div>
+
+    <div class="overview-card" style="margin-bottom:16px;">
+      <h3 style="margin-bottom:12px;">Role System</h3>
+      <table class="role-table">
+        <tr><th>Role</th><th>courseId</th><th>Access</th></tr>
+        <tr><td><span class="tag tag-orange">ADMIN</span></td><td style="color:var(--red)">null</td><td>Super Admin — everything</td></tr>
+        <tr><td><span class="tag tag-blue">ADMIN</span></td><td style="color:var(--green)">set</td><td>Tutor — own course only</td></tr>
+        <tr><td><span class="tag tag-green">STUDENT</span></td><td style="color:var(--green)">set</td><td>Student — own cohort + course</td></tr>
+      </table>
+    </div>
+
+    <div class="overview-card">
+      <h3 style="margin-bottom:12px;">Payment Flow</h3>
+      <table class="role-table">
+        <tr><th>Status</th><th>Meaning</th><th>Amount Paid</th></tr>
+        <tr><td><span class="tag tag-orange">PENDING</span></td><td>Initiated, not yet paid</td><td>₦0</td></tr>
+        <tr><td><span class="tag tag-blue">INSTALMENT_1_PAID</span></td><td>First instalment confirmed</td><td>₦35,000</td></tr>
+        <tr><td><span class="tag tag-green">COMPLETED</span></td><td>Fully paid</td><td>₦70,000</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Auth -->
+  <div id="s-auth" class="section">
+    <div class="section-title">Authentication</div>
+    <p class="section-desc">Single login endpoint for all roles. Returns a JWT to use in the sidebar.</p>
+    <div class="note"><strong>Tip:</strong> After a successful login, copy the token from the response and paste it into the Bearer Token field in the sidebar. All subsequent requests will use it automatically.</div>
+
+    <div class="endpoint" id="ep-login">
+      <div class="endpoint-header" onclick="toggle('ep-login')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/auth/login</span>
+        <span class="endpoint-desc">Login — all roles</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="row-2">
+            <div class="field"><label>email <span class="required">*</span></label><input type="email" placeholder="john@web3nova.org" data-field="email"></div>
+            <div class="field"><label>password <span class="required">*</span></label><input type="password" placeholder="john" data-field="password"></div>
+          </div>
+        </div>
+        <button class="btn-send" onclick="send('ep-login','POST','/auth/login',['email','password'],false)">Send Request</button>
+        <div class="response-box" id="res-ep-login" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cohorts -->
+  <div id="s-cohorts" class="section">
+    <div class="section-title">Cohorts</div>
+    <p class="section-desc">Super admin only. Create and list cohorts.</p>
+
+    <div class="endpoint" id="ep-post-cohort">
+      <div class="endpoint-header" onclick="toggle('ep-post-cohort')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/admin/cohorts</span>
+        <span class="endpoint-desc">Create cohort</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="field"><label>name <span class="required">*</span></label><input type="text" placeholder="Cohort III" data-field="name"></div>
+          <div class="row-2">
+            <div class="field"><label>startDate <span class="required">*</span></label><input type="date" data-field="startDate"></div>
+            <div class="field"><label>endDate <span class="required">*</span></label><input type="date" data-field="endDate"></div>
+          </div>
+        </div>
+        <button class="btn-send" onclick="send('ep-post-cohort','POST','/admin/cohorts',['name','startDate','endDate'])">Send Request</button>
+        <div class="response-box" id="res-ep-post-cohort" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-get-cohorts">
+      <div class="endpoint-header" onclick="toggle('ep-get-cohorts')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/admin/cohorts</span>
+        <span class="endpoint-desc">List all cohorts</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <button class="btn-send" onclick="send('ep-get-cohorts','GET','/admin/cohorts',[])">Send Request</button>
+        <div class="response-box" id="res-ep-get-cohorts" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Courses -->
+  <div id="s-courses" class="section">
+    <div class="section-title">Courses</div>
+    <p class="section-desc">Super admin only for create/delete. Tutors can list their own course.</p>
+
+    <div class="endpoint" id="ep-post-course">
+      <div class="endpoint-header" onclick="toggle('ep-post-course')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/admin/courses</span>
+        <span class="endpoint-desc">Create course</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="field"><label>name <span class="required">*</span></label><input type="text" placeholder="Web Development" data-field="name"></div>
+          <div class="field"><label>cohortId <span class="required">*</span></label><input type="text" placeholder="clx..." data-field="cohortId"></div>
+        </div>
+        <button class="btn-send" onclick="send('ep-post-course','POST','/admin/courses',['name','cohortId'])">Send Request</button>
+        <div class="response-box" id="res-ep-post-course" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-get-courses">
+      <div class="endpoint-header" onclick="toggle('ep-get-courses')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/admin/courses</span>
+        <span class="endpoint-desc">List courses</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>cohortId <span class="field-type">query</span> optional</label><input type="text" placeholder="clx..." data-field="q_cohortId"></div>
+        <br>
+        <button class="btn-send" onclick="sendWithQuery('ep-get-courses','GET','/admin/courses',{cohortId:'q_cohortId'})">Send Request</button>
+        <div class="response-box" id="res-ep-get-courses" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-del-course">
+      <div class="endpoint-header" onclick="toggle('ep-del-course')">
+        <span class="method-badge method-DELETE">DELETE</span>
+        <span class="endpoint-path">/admin/courses/:id</span>
+        <span class="endpoint-desc">Delete course</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="course id" data-field="del_course_id"></div>
+        <br>
+        <button class="btn-send" onclick="sendPath('ep-del-course','DELETE','/admin/courses/','del_course_id')">Send Request</button>
+        <div class="response-box" id="res-ep-del-course" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admins -->
+  <div id="s-admins-mgmt" class="section">
+    <div class="section-title">Admins / Tutors</div>
+    <p class="section-desc">Super admin only. Assign tutors to courses.</p>
+
+    <div class="endpoint" id="ep-post-admin">
+      <div class="endpoint-header" onclick="toggle('ep-post-admin')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/admin/admins</span>
+        <span class="endpoint-desc">Create tutor</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="field"><label>name <span class="required">*</span></label><input type="text" placeholder="Tunde Adeyemi" data-field="adm_name"></div>
+          <div class="field"><label>email <span class="required">*</span></label><input type="email" placeholder="tunde@web3nova.org" data-field="adm_email"></div>
+          <div class="field"><label>courseId <span class="required">*</span></label><input type="text" placeholder="clx..." data-field="adm_courseId"></div>
+        </div>
+        <button class="btn-send" onclick="sendCustom('ep-post-admin','POST','/admin/admins',{name:'adm_name',email:'adm_email',courseId:'adm_courseId'})">Send Request</button>
+        <div class="response-box" id="res-ep-post-admin" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-del-admin">
+      <div class="endpoint-header" onclick="toggle('ep-del-admin')">
+        <span class="method-badge method-DELETE">DELETE</span>
+        <span class="endpoint-path">/admin/admins/:id</span>
+        <span class="endpoint-desc">Delete tutor</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="tutor id" data-field="del_admin_id"></div>
+        <br>
+        <button class="btn-send" onclick="sendPath('ep-del-admin','DELETE','/admin/admins/','del_admin_id')">Send Request</button>
+        <div class="response-box" id="res-ep-del-admin" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Students -->
+  <div id="s-students" class="section">
+    <div class="section-title">Students</div>
+    <p class="section-desc">Create, bulk-create, list, and delete students.</p>
+
+    <div class="endpoint" id="ep-post-student">
+      <div class="endpoint-header" onclick="toggle('ep-post-student')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/admin/students</span>
+        <span class="endpoint-desc">Create student</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="row-2">
+            <div class="field"><label>name <span class="required">*</span></label><input type="text" placeholder="Jane Okonkwo" data-field="stu_name"></div>
+            <div class="field"><label>email <span class="required">*</span></label><input type="email" placeholder="jane@web3nova.org" data-field="stu_email"></div>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>cohortId <span class="required">*</span></label><input type="text" placeholder="clx..." data-field="stu_cohortId"></div>
+            <div class="field"><label>courseId <span class="required">*</span></label><input type="text" placeholder="clx..." data-field="stu_courseId"></div>
+          </div>
+        </div>
+        <button class="btn-send" onclick="sendCustom('ep-post-student','POST','/admin/students',{name:'stu_name',email:'stu_email',cohortId:'stu_cohortId',courseId:'stu_courseId'})">Send Request</button>
+        <div class="response-box" id="res-ep-post-student" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-bulk-students">
+      <div class="endpoint-header" onclick="toggle('ep-bulk-students')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/admin/students/bulk</span>
+        <span class="endpoint-desc">Bulk create students</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="row-2">
+            <div class="field"><label>cohortId <span class="required">*</span></label><input type="text" placeholder="clx..." data-field="bulk_cohortId"></div>
+            <div class="field"><label>courseId <span class="required">*</span></label><input type="text" placeholder="clx..." data-field="bulk_courseId"></div>
+          </div>
+          <div class="field">
+            <label>students <span class="required">*</span> <span class="field-type">JSON array</span></label>
+            <textarea data-field="bulk_students" placeholder='[{"name":"Jane Okonkwo","email":"jane@web3nova.org"},{"name":"Emeka Nwosu","email":"emeka@web3nova.org"}]'></textarea>
+          </div>
+        </div>
+        <button class="btn-send" onclick="sendBulkStudents()">Send Request</button>
+        <div class="response-box" id="res-ep-bulk-students" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-get-students">
+      <div class="endpoint-header" onclick="toggle('ep-get-students')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/admin/students</span>
+        <span class="endpoint-desc">List students</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>cohortId <span class="field-type">query</span> optional</label><input type="text" placeholder="clx..." data-field="q_stu_cohortId"></div>
+        <br>
+        <button class="btn-send" onclick="sendWithQuery('ep-get-students','GET','/admin/students',{cohortId:'q_stu_cohortId'})">Send Request</button>
+        <div class="response-box" id="res-ep-get-students" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-del-student">
+      <div class="endpoint-header" onclick="toggle('ep-del-student')">
+        <span class="method-badge method-DELETE">DELETE</span>
+        <span class="endpoint-path">/admin/students/:id</span>
+        <span class="endpoint-desc">Delete student</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="student id" data-field="del_stu_id"></div>
+        <br>
+        <button class="btn-send" onclick="sendPath('ep-del-student','DELETE','/admin/students/','del_stu_id')">Send Request</button>
+        <div class="response-box" id="res-ep-del-student" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Curriculum Admin -->
+  <div id="s-curriculum-admin" class="section">
+    <div class="section-title">Curriculum (Admin)</div>
+    <p class="section-desc">Seed and manage 12 curriculum weeks per course.</p>
+
+    <div class="endpoint" id="ep-seed-curriculum">
+      <div class="endpoint-header" onclick="toggle('ep-seed-curriculum')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/admin/curriculum/seed/:cohortId/:courseId</span>
+        <span class="endpoint-desc">Seed 12 weeks</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="row-2">
+          <div class="field"><label>cohortId <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="clx..." data-field="seed_cohortId"></div>
+          <div class="field"><label>courseId <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="clx..." data-field="seed_courseId"></div>
+        </div>
+        <br>
+        <button class="btn-send" onclick="sendSeedCurriculum()">Send Request</button>
+        <div class="response-box" id="res-ep-seed-curriculum" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-get-curriculum-admin">
+      <div class="endpoint-header" onclick="toggle('ep-get-curriculum-admin')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/admin/curriculum</span>
+        <span class="endpoint-desc">Get all weeks</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="row-2">
+          <div class="field"><label>cohortId <span class="field-type">query</span></label><input type="text" placeholder="clx..." data-field="q_cur_cohortId"></div>
+          <div class="field"><label>courseId <span class="field-type">query</span></label><input type="text" placeholder="clx..." data-field="q_cur_courseId"></div>
+        </div>
+        <br>
+        <button class="btn-send" onclick="sendWithQuery('ep-get-curriculum-admin','GET','/admin/curriculum',{cohortId:'q_cur_cohortId',courseId:'q_cur_courseId'})">Send Request</button>
+        <div class="response-box" id="res-ep-get-curriculum-admin" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-patch-curriculum">
+      <div class="endpoint-header" onclick="toggle('ep-patch-curriculum')">
+        <span class="method-badge method-PATCH">PATCH</span>
+        <span class="endpoint-path">/admin/curriculum/:id</span>
+        <span class="endpoint-desc">Update week title/description</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="field"><label>id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="curriculum week id" data-field="patch_cur_id"></div>
+          <div class="field"><label>title</label><input type="text" placeholder="Intro to Web Development" data-field="patch_cur_title"></div>
+          <div class="field"><label>description</label><textarea placeholder="Week description..." data-field="patch_cur_desc"></textarea></div>
+        </div>
+        <button class="btn-send" onclick="sendPatchCurriculum()">Send Request</button>
+        <div class="response-box" id="res-ep-patch-curriculum" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assignments Admin -->
+  <div id="s-assignments-admin" class="section">
+    <div class="section-title">Assignments (Admin)</div>
+    <p class="section-desc">One assignment per curriculum week. Auto-calculated open/close window: Friday 00:00 → Monday 23:59.</p>
+
+    <div class="endpoint" id="ep-post-assignment">
+      <div class="endpoint-header" onclick="toggle('ep-post-assignment')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/admin/curriculum/:id/assignment</span>
+        <span class="endpoint-desc">Create assignment for a week</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="field"><label>curriculum id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="curriculum week id" data-field="asgn_cur_id"></div>
+          <div class="field"><label>title <span class="required">*</span></label><input type="text" placeholder="Build a landing page" data-field="asgn_title"></div>
+          <div class="field"><label>description <span class="required">*</span></label><textarea placeholder="Brief context..." data-field="asgn_desc"></textarea></div>
+          <div class="field"><label>questionText</label><textarea placeholder="Full question text..." data-field="asgn_qtext"></textarea></div>
+          <div class="field"><label>allowedSubmissionTypes <span class="field-type">JSON</span></label><input type="text" placeholder='["url","pdf","image"]' data-field="asgn_types"></div>
+        </div>
+        <button class="btn-send" onclick="sendCreateAssignment()">Send Request</button>
+        <div class="response-box" id="res-ep-post-assignment" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-patch-assignment">
+      <div class="endpoint-header" onclick="toggle('ep-patch-assignment')">
+        <span class="method-badge method-PATCH">PATCH</span>
+        <span class="endpoint-path">/admin/assignments/:id</span>
+        <span class="endpoint-desc">Edit assignment</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="field"><label>id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="assignment id" data-field="patch_asgn_id"></div>
+          <div class="field"><label>title</label><input type="text" data-field="patch_asgn_title"></div>
+          <div class="field"><label>description</label><textarea data-field="patch_asgn_desc"></textarea></div>
+          <div class="field"><label>questionText</label><textarea data-field="patch_asgn_qtext"></textarea></div>
+          <div class="field"><label>allowedSubmissionTypes <span class="field-type">JSON</span></label><input type="text" placeholder='["url","pdf"]' data-field="patch_asgn_types"></div>
+        </div>
+        <button class="btn-send" onclick="sendPatchAssignment()">Send Request</button>
+        <div class="response-box" id="res-ep-patch-assignment" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-get-submissions">
+      <div class="endpoint-header" onclick="toggle('ep-get-submissions')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/admin/assignments/:id/submissions</span>
+        <span class="endpoint-desc">Get all submissions</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>assignment id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="assignment id" data-field="get_subs_id"></div>
+        <br>
+        <button class="btn-send" onclick="sendPath('ep-get-submissions','GET','/admin/assignments/','get_subs_id','/submissions')">Send Request</button>
+        <div class="response-box" id="res-ep-get-submissions" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-grade-submission">
+      <div class="endpoint-header" onclick="toggle('ep-grade-submission')">
+        <span class="method-badge method-PATCH">PATCH</span>
+        <span class="endpoint-path">/admin/submissions/:id/grade</span>
+        <span class="endpoint-desc">Grade a submission</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="field"><label>submission id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="submission id" data-field="grade_sub_id"></div>
+          <div class="row-2">
+            <div class="field"><label>grade <span class="required">*</span></label><input type="number" placeholder="85" data-field="grade_value"></div>
+            <div class="field"><label>feedback</label><input type="text" placeholder="Good work..." data-field="grade_feedback"></div>
+          </div>
+        </div>
+        <button class="btn-send" onclick="sendGradeSubmission()">Send Request</button>
+        <div class="response-box" id="res-ep-grade-submission" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assessments Admin -->
+  <div id="s-assessments-admin" class="section">
+    <div class="section-title">Assessments (Admin)</div>
+    <p class="section-desc">Create MCQ quizzes and file-upload assessments.</p>
+
+    <div class="endpoint" id="ep-post-assessment">
+      <div class="endpoint-header" onclick="toggle('ep-post-assessment')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/admin/assessments</span>
+        <span class="endpoint-desc">Create assessment</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="row-2">
+            <div class="field"><label>title <span class="required">*</span></label><input type="text" placeholder="Week 3 Quiz" data-field="asmt_title"></div>
+            <div class="field"><label>type <span class="required">*</span></label>
+              <select data-field="asmt_type">
+                <option value="TEST">TEST</option>
+                <option value="EXAM">EXAM</option>
+                <option value="QUIZ">QUIZ</option>
+                <option value="file_upload">file_upload</option>
+              </select>
+            </div>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>cohortId <span class="required">*</span></label><input type="text" placeholder="clx..." data-field="asmt_cohortId"></div>
+            <div class="field"><label>courseId <span class="required">*</span></label><input type="text" placeholder="clx..." data-field="asmt_courseId"></div>
+          </div>
+          <div class="field"><label>dueDate <span class="required">*</span></label><input type="date" data-field="asmt_dueDate"></div>
+        </div>
+        <button class="btn-send" onclick="sendCustom('ep-post-assessment','POST','/admin/assessments',{title:'asmt_title',type:'asmt_type',cohortId:'asmt_cohortId',courseId:'asmt_courseId',dueDate:'asmt_dueDate'})">Send Request</button>
+        <div class="response-box" id="res-ep-post-assessment" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-get-asmt-results">
+      <div class="endpoint-header" onclick="toggle('ep-get-asmt-results')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/admin/assessments/:id/results</span>
+        <span class="endpoint-desc">Get all results</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>assessment id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="assessment id" data-field="get_asmt_res_id"></div>
+        <br>
+        <button class="btn-send" onclick="sendPath('ep-get-asmt-results','GET','/admin/assessments/','get_asmt_res_id','/results')">Send Request</button>
+        <div class="response-box" id="res-ep-get-asmt-results" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-score-result">
+      <div class="endpoint-header" onclick="toggle('ep-score-result')">
+        <span class="method-badge method-PATCH">PATCH</span>
+        <span class="endpoint-path">/admin/assessments/results/:id/score</span>
+        <span class="endpoint-desc">Set score manually</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="row-2">
+          <div class="field"><label>result id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="result id" data-field="score_res_id"></div>
+          <div class="field"><label>score <span class="required">*</span></label><input type="number" placeholder="78" data-field="score_value"></div>
+        </div>
+        <br>
+        <button class="btn-send" onclick="sendScoreResult()">Send Request</button>
+        <div class="response-box" id="res-ep-score-result" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Materials Admin -->
+  <div id="s-materials-admin" class="section">
+    <div class="section-title">Materials (Admin)</div>
+    <p class="section-desc">Upload files to Cloudinary and attach to a course or specific curriculum week.</p>
+
+    <div class="endpoint" id="ep-del-material">
+      <div class="endpoint-header" onclick="toggle('ep-del-material')">
+        <span class="method-badge method-DELETE">DELETE</span>
+        <span class="endpoint-path">/admin/materials/:id</span>
+        <span class="endpoint-desc">Delete material</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>material id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="material id" data-field="del_mat_id"></div>
+        <br>
+        <button class="btn-send" onclick="sendPath('ep-del-material','DELETE','/admin/materials/','del_mat_id')">Send Request</button>
+        <div class="response-box" id="res-ep-del-material" style="display:none"></div>
+      </div>
+    </div>
+    <div class="note"><strong>Note:</strong> Material upload requires multipart/form-data with a file. Use Postman or your frontend for file uploads — this tester handles JSON only.</div>
+  </div>
+
+  <!-- Attendance Admin -->
+  <div id="s-attendance-admin" class="section">
+    <div class="section-title">Attendance (Admin)</div>
+    <p class="section-desc">Manage attendance sessions and view records.</p>
+
+    <div class="endpoint" id="ep-open-session">
+      <div class="endpoint-header" onclick="toggle('ep-open-session')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/admin/attendance/sessions</span>
+        <span class="endpoint-desc">Open attendance session</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="row-2">
+            <div class="field"><label>cohortId <span class="required">*</span></label><input type="text" placeholder="clx..." data-field="sess_cohortId"></div>
+            <div class="field"><label>courseId <span class="required">*</span></label><input type="text" placeholder="clx..." data-field="sess_courseId"></div>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>date <span class="required">*</span></label><input type="date" data-field="sess_date"></div>
+            <div class="field"><label>allowedIp <span class="required">*</span></label><input type="text" placeholder="192.168.1.1" data-field="sess_ip"></div>
+          </div>
+        </div>
+        <button class="btn-send" onclick="sendCustom('ep-open-session','POST','/admin/attendance/sessions',{cohortId:'sess_cohortId',courseId:'sess_courseId',date:'sess_date',allowedIp:'sess_ip'})">Send Request</button>
+        <div class="response-box" id="res-ep-open-session" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-close-session">
+      <div class="endpoint-header" onclick="toggle('ep-close-session')">
+        <span class="method-badge method-PATCH">PATCH</span>
+        <span class="endpoint-path">/admin/attendance/sessions/:id/close</span>
+        <span class="endpoint-desc">Close session</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>session id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="session id" data-field="close_sess_id"></div>
+        <br>
+        <button class="btn-send" onclick="sendPath('ep-close-session','PATCH','/admin/attendance/sessions/','close_sess_id','/close',{})">Send Request</button>
+        <div class="response-box" id="res-ep-close-session" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-get-sessions">
+      <div class="endpoint-header" onclick="toggle('ep-get-sessions')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/admin/attendance/sessions</span>
+        <span class="endpoint-desc">List sessions</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>cohortId <span class="field-type">query</span></label><input type="text" placeholder="clx..." data-field="q_sess_cohortId"></div>
+        <br>
+        <button class="btn-send" onclick="sendWithQuery('ep-get-sessions','GET','/admin/attendance/sessions',{cohortId:'q_sess_cohortId'})">Send Request</button>
+        <div class="response-box" id="res-ep-get-sessions" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-get-attendance">
+      <div class="endpoint-header" onclick="toggle('ep-get-attendance')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/admin/attendance</span>
+        <span class="endpoint-desc">List attendance records</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="row-2">
+          <div class="field"><label>cohortId <span class="field-type">query</span></label><input type="text" placeholder="clx..." data-field="q_att_cohortId"></div>
+          <div class="field"><label>sessionId <span class="field-type">query</span></label><input type="text" placeholder="session id" data-field="q_att_sessionId"></div>
+        </div>
+        <br>
+        <button class="btn-send" onclick="sendWithQuery('ep-get-attendance','GET','/admin/attendance',{cohortId:'q_att_cohortId',sessionId:'q_att_sessionId'})">Send Request</button>
+        <div class="response-box" id="res-ep-get-attendance" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payments Admin -->
+  <div id="s-payments-admin" class="section">
+    <div class="section-title">Payments (Admin)</div>
+    <p class="section-desc">View and manage student payment records. Total fee: ₦70,000. Instalment 1 deadline: 7 June. Instalment 2 deadline: 7 July.</p>
+
+    <div class="endpoint" id="ep-get-payments">
+      <div class="endpoint-header" onclick="toggle('ep-get-payments')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/admin/payments</span>
+        <span class="endpoint-desc">List all payment records</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="row-2">
+          <div class="field"><label>cohortId <span class="field-type">query</span></label><input type="text" placeholder="clx..." data-field="q_pay_cohortId"></div>
+          <div class="field"><label>courseId <span class="field-type">query</span></label><input type="text" placeholder="clx..." data-field="q_pay_courseId"></div>
+        </div>
+        <br>
+        <button class="btn-send" onclick="sendWithQuery('ep-get-payments','GET','/admin/payments',{cohortId:'q_pay_cohortId',courseId:'q_pay_courseId'})">Send Request</button>
+        <div class="response-box" id="res-ep-get-payments" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-pay-summary">
+      <div class="endpoint-header" onclick="toggle('ep-pay-summary')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/admin/payments/summary</span>
+        <span class="endpoint-desc">Payment count summary</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>cohortId <span class="field-type">query</span></label><input type="text" placeholder="clx..." data-field="q_psum_cohortId"></div>
+        <br>
+        <button class="btn-send" onclick="sendWithQuery('ep-pay-summary','GET','/admin/payments/summary',{cohortId:'q_psum_cohortId'})">Send Request</button>
+        <div class="response-box" id="res-ep-pay-summary" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-pay-override">
+      <div class="endpoint-header" onclick="toggle('ep-pay-override')">
+        <span class="method-badge method-PATCH">PATCH</span>
+        <span class="endpoint-path">/admin/payments/:studentId/override</span>
+        <span class="endpoint-desc">Manual payment override</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="field"><label>studentId <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="student id" data-field="ov_studentId"></div>
+          <div class="row-2">
+            <div class="field"><label>status <span class="required">*</span></label>
+              <select data-field="ov_status">
+                <option value="COMPLETED">COMPLETED</option>
+                <option value="INSTALMENT_1_PAID">INSTALMENT_1_PAID</option>
+                <option value="PENDING">PENDING</option>
+              </select>
+            </div>
+            <div class="field"><label>amountPaid</label><input type="number" placeholder="70000" data-field="ov_amount"></div>
+          </div>
+        </div>
+        <button class="btn-send" onclick="sendPaymentOverride()">Send Request</button>
+        <div class="response-box" id="res-ep-pay-override" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Curriculum Student -->
+  <div id="s-curriculum-student" class="section">
+    <div class="section-title">Curriculum (Student)</div>
+    <p class="section-desc">Returns all 12 weeks with materials and assignment windows. Auto-scoped to the student's cohort and course.</p>
+
+    <div class="endpoint" id="ep-stu-curriculum">
+      <div class="endpoint-header" onclick="toggle('ep-stu-curriculum')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/student/curriculum</span>
+        <span class="endpoint-desc">Get curriculum</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <button class="btn-send" onclick="send('ep-stu-curriculum','GET','/student/curriculum',[])">Send Request</button>
+        <div class="response-box" id="res-ep-stu-curriculum" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assignments Student -->
+  <div id="s-assignments-student" class="section">
+    <div class="section-title">Assignments (Student)</div>
+    <p class="section-desc">Submit and track assignments. Only open assignments (within Friday–Monday window) are returned.</p>
+
+    <div class="endpoint" id="ep-stu-get-assignments">
+      <div class="endpoint-header" onclick="toggle('ep-stu-get-assignments')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/student/assignments</span>
+        <span class="endpoint-desc">Get open assignments</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <button class="btn-send" onclick="send('ep-stu-get-assignments','GET','/student/assignments',[])">Send Request</button>
+        <div class="response-box" id="res-ep-stu-get-assignments" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-stu-get-assignment">
+      <div class="endpoint-header" onclick="toggle('ep-stu-get-assignment')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/student/assignments/:id</span>
+        <span class="endpoint-desc">Get assignment details</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="assignment id" data-field="stu_asgn_id"></div>
+        <br>
+        <button class="btn-send" onclick="sendPath('ep-stu-get-assignment','GET','/student/assignments/','stu_asgn_id')">Send Request</button>
+        <div class="response-box" id="res-ep-stu-get-assignment" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assessments Student -->
+  <div id="s-assessments-student" class="section">
+    <div class="section-title">Assessments (Student)</div>
+    <p class="section-desc">View and submit MCQ and file-upload assessments.</p>
+
+    <div class="endpoint" id="ep-stu-get-assessments">
+      <div class="endpoint-header" onclick="toggle('ep-stu-get-assessments')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/student/assessments</span>
+        <span class="endpoint-desc">List assessments</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>type <span class="field-type">query</span> optional</label>
+          <select data-field="q_asmt_type">
+            <option value="">All</option>
+            <option value="TEST">TEST</option>
+            <option value="EXAM">EXAM</option>
+          </select>
+        </div>
+        <br>
+        <button class="btn-send" onclick="sendWithQuery('ep-stu-get-assessments','GET','/student/assessments',{type:'q_asmt_type'})">Send Request</button>
+        <div class="response-box" id="res-ep-stu-get-assessments" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-stu-get-assessment">
+      <div class="endpoint-header" onclick="toggle('ep-stu-get-assessment')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/student/assessments/:id</span>
+        <span class="endpoint-desc">Get assessment + questions</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field"><label>id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="assessment id" data-field="stu_asmt_id"></div>
+        <br>
+        <button class="btn-send" onclick="sendPath('ep-stu-get-assessment','GET','/student/assessments/','stu_asmt_id')">Send Request</button>
+        <div class="response-box" id="res-ep-stu-get-assessment" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-stu-submit-mcq">
+      <div class="endpoint-header" onclick="toggle('ep-stu-submit-mcq')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/student/assessments/:id/submit</span>
+        <span class="endpoint-desc">Submit MCQ answers</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field-group">
+          <div class="field"><label>assessment id <span class="required">*</span> <span class="field-type">path</span></label><input type="text" placeholder="assessment id" data-field="mcq_asmt_id"></div>
+          <div class="field"><label>answers <span class="required">*</span> <span class="field-type">JSON</span></label><textarea placeholder='{"0":"A","1":"C","2":"B"}' data-field="mcq_answers"></textarea></div>
+        </div>
+        <button class="btn-send" onclick="sendMCQSubmit()">Send Request</button>
+        <div class="response-box" id="res-ep-stu-submit-mcq" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Materials Student -->
+  <div id="s-materials-student" class="section">
+    <div class="section-title">Materials (Student)</div>
+
+    <div class="endpoint" id="ep-stu-materials">
+      <div class="endpoint-header" onclick="toggle('ep-stu-materials')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/student/materials</span>
+        <span class="endpoint-desc">Get course materials</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <button class="btn-send" onclick="send('ep-stu-materials','GET','/student/materials',[])">Send Request</button>
+        <div class="response-box" id="res-ep-stu-materials" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attendance Student -->
+  <div id="s-attendance-student" class="section">
+    <div class="section-title">Attendance (Student)</div>
+
+    <div class="endpoint" id="ep-stu-checkin">
+      <div class="endpoint-header" onclick="toggle('ep-stu-checkin')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/student/attendance/check-in</span>
+        <span class="endpoint-desc">Check in (IP validated)</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="note"><strong>Note:</strong> No body needed. Your IP is validated server-side against the active session's allowedIp.</div>
+        <button class="btn-send" onclick="send('ep-stu-checkin','POST','/student/attendance/check-in',[])">Send Request</button>
+        <div class="response-box" id="res-ep-stu-checkin" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-stu-attendance">
+      <div class="endpoint-header" onclick="toggle('ep-stu-attendance')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/student/attendance</span>
+        <span class="endpoint-desc">My attendance history</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <button class="btn-send" onclick="send('ep-stu-attendance','GET','/student/attendance',[])">Send Request</button>
+        <div class="response-box" id="res-ep-stu-attendance" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grades -->
+  <div id="s-grades" class="section">
+    <div class="section-title">Grades</div>
+    <p class="section-desc">Submission history only — grades and scores are never shown to students.</p>
+
+    <div class="endpoint" id="ep-stu-grades">
+      <div class="endpoint-header" onclick="toggle('ep-stu-grades')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/student/grades</span>
+        <span class="endpoint-desc">My submission history</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <button class="btn-send" onclick="send('ep-stu-grades','GET','/student/grades',[])">Send Request</button>
+        <div class="response-box" id="res-ep-stu-grades" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payments Student -->
+  <div id="s-payments-student" class="section">
+    <div class="section-title">Payments (Student)</div>
+    <p class="section-desc">Check payment status, initiate Monnify checkout, and poll for confirmation.</p>
+
+    <div class="endpoint" id="ep-pay-status">
+      <div class="endpoint-header" onclick="toggle('ep-pay-status')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/payments/status</span>
+        <span class="endpoint-desc">My payment status</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <button class="btn-send" onclick="send('ep-pay-status','GET','/payments/status',[])">Send Request</button>
+        <div class="response-box" id="res-ep-pay-status" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-pay-initiate">
+      <div class="endpoint-header" onclick="toggle('ep-pay-initiate')">
+        <span class="method-badge method-POST">POST</span>
+        <span class="endpoint-path">/payments/initiate</span>
+        <span class="endpoint-desc">Initiate payment → get checkout URL</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="field">
+          <label>paymentType <span class="required">*</span></label>
+          <select data-field="pay_type">
+            <option value="full">full — ₦70,000 at once</option>
+            <option value="instalment1">instalment1 — ₦35,000 (due 7 Jun)</option>
+            <option value="instalment2">instalment2 — ₦35,000 (due 7 Jul)</option>
+          </select>
+        </div>
+        <br>
+        <button class="btn-send" onclick="sendCustom('ep-pay-initiate','POST','/payments/initiate',{paymentType:'pay_type'})">Send Request</button>
+        <div class="response-box" id="res-ep-pay-initiate" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="endpoint" id="ep-pay-poll">
+      <div class="endpoint-header" onclick="toggle('ep-pay-poll')">
+        <span class="method-badge method-GET">GET</span>
+        <span class="endpoint-path">/payments/poll</span>
+        <span class="endpoint-desc">Poll payment confirmation</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="note"><strong>How it works:</strong> Call this every few seconds after the student returns from the Monnify checkout page. Returns <code style="color:var(--green)">done: true</code> when payment is confirmed or failed.</div>
+        <button class="btn-send" onclick="send('ep-pay-poll','GET','/payments/poll',[])">Send Request</button>
+        <div class="response-box" id="res-ep-pay-poll" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // ── Navigation ──────────────────────────────────────────────
+  function show(section, el) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'))
+    document.getElementById('s-' + section).classList.add('active')
+    el.classList.add('active')
+  }
+
+  function toggle(id) {
+    document.getElementById(id).classList.toggle('open')
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function baseUrl() { return document.getElementById('baseUrl').value.replace(/\/$/, '') }
+  function token()   { return document.getElementById('globalToken').value.trim() }
+  function val(field) { return document.querySelector(`[data-field="${field}"]`)?.value?.trim() || '' }
+
+  function headers(auth = true) {
+    const h = { 'Content-Type': 'application/json' }
+    if (auth && token()) h['Authorization'] = `Bearer ${token()}`
+    return h
+  }
+
+  function showResponse(epId, status, body, ms) {
+    const box = document.getElementById('res-' + epId)
+    box.style.display = 'block'
+    const cls = status >= 500 ? 'status-5xx' : status >= 400 ? 'status-4xx' : 'status-2xx'
+    box.innerHTML = `
+      <div class="response-header">
+        <span class="status-pill ${cls}">${status}</span>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span class="response-time">${ms}ms</span>
+          <button class="btn-copy" onclick="navigator.clipboard.writeText(document.getElementById('rb-${epId}').textContent)">Copy</button>
+        </div>
+      </div>
+      <div class="response-body" id="rb-${epId}">${highlight(JSON.stringify(body, null, 2))}</div>
+    `
+  }
+
+  function highlight(json) {
+    return json
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+        if (/^"/.test(m)) return /:$/.test(m) ? `<span class="json-key">${m}</span>` : `<span class="json-string">${m}</span>`
+        if (/true|false/.test(m)) return `<span class="json-bool">${m}</span>`
+        if (/null/.test(m)) return `<span class="json-null">${m}</span>`
+        return `<span class="json-number">${m}</span>`
+      })
+  }
+
+  function setLoading(btn) {
+    btn.disabled = true
+    btn.innerHTML = '<span class="spinner"></span>Sending...'
+    return () => { btn.disabled = false; btn.innerHTML = 'Send Request' }
+  }
+
+  async function request(epId, method, url, body, auth = true) {
+    const btn = document.querySelector(`#${epId} .btn-send`)
+    const done = setLoading(btn)
+    const t0 = Date.now()
+    try {
+      const opts = { method, headers: headers(auth) }
+      if (body && method !== 'GET') opts.body = JSON.stringify(body)
+      const res = await fetch(baseUrl() + url, opts)
+      const data = await res.json().catch(() => ({}))
+
+      // Auto-save token on login
+      if (url === '/auth/login' && data.token) {
+        document.getElementById('globalToken').value = data.token
+        document.getElementById('globalToken').style.borderColor = 'var(--green)'
+        setTimeout(() => document.getElementById('globalToken').style.borderColor = '', 2000)
+      }
+
+      showResponse(epId, res.status, data, Date.now() - t0)
+    } catch(e) {
+      showResponse(epId, 0, { error: e.message }, Date.now() - t0)
+    } finally { done() }
+  }
+
+  // ── Generic senders ──────────────────────────────────────────
+  function send(epId, method, path, fields, auth = true) {
+    const body = {}
+    fields.forEach(f => { const v = val(f); if (v) body[f] = v })
+    request(epId, method, path, Object.keys(body).length ? body : null, auth)
+  }
+
+  function sendWithQuery(epId, method, path, queryMap) {
+    const params = new URLSearchParams()
+    Object.entries(queryMap).forEach(([k, field]) => { const v = val(field); if (v) params.set(k, v) })
+    const qs = params.toString()
+    request(epId, method, path + (qs ? '?' + qs : ''), null)
+  }
+
+  function sendPath(epId, method, base, idField, suffix = '', body = null) {
+    const id = val(idField)
+    if (!id) return alert('ID is required')
+    request(epId, method, base + id + suffix, body)
+  }
+
+  function sendCustom(epId, method, path, fieldMap) {
+    const body = {}
+    Object.entries(fieldMap).forEach(([k, field]) => { const v = val(field); if (v) body[k] = v })
+    request(epId, method, path, body)
+  }
+
+  // ── Specialised senders ──────────────────────────────────────
+  function sendBulkStudents() {
+    const cohortId = val('bulk_cohortId'), courseId = val('bulk_courseId'), raw = val('bulk_students')
+    if (!cohortId || !courseId || !raw) return alert('All fields required')
+    try {
+      const students = JSON.parse(raw)
+      request('ep-bulk-students', 'POST', '/admin/students/bulk', { cohortId, courseId, students })
+    } catch { alert('Invalid JSON for students array') }
+  }
+
+  function sendSeedCurriculum() {
+    const cohortId = val('seed_cohortId'), courseId = val('seed_courseId')
+    if (!cohortId || !courseId) return alert('Both IDs required')
+    request('ep-seed-curriculum', 'POST', `/admin/curriculum/seed/${cohortId}/${courseId}`, {})
+  }
+
+  function sendPatchCurriculum() {
+    const id = val('patch_cur_id')
+    if (!id) return alert('Curriculum ID required')
+    const body = {}
+    const t = val('patch_cur_title'), d = val('patch_cur_desc')
+    if (t) body.title = t
+    if (d) body.description = d
+    request('ep-patch-curriculum', 'PATCH', `/admin/curriculum/${id}`, body)
+  }
+
+  function sendCreateAssignment() {
+    const id = val('asgn_cur_id')
+    if (!id) return alert('Curriculum ID required')
+    const body = {}
+    const fields = {title:'asgn_title',description:'asgn_desc',questionText:'asgn_qtext',allowedSubmissionTypes:'asgn_types'}
+    Object.entries(fields).forEach(([k, f]) => { const v = val(f); if (v) body[k] = v })
+    request('ep-post-assignment', 'POST', `/admin/curriculum/${id}/assignment`, body)
+  }
+
+  function sendPatchAssignment() {
+    const id = val('patch_asgn_id')
+    if (!id) return alert('Assignment ID required')
+    const body = {}
+    const fields = {title:'patch_asgn_title',description:'patch_asgn_desc',questionText:'patch_asgn_qtext',allowedSubmissionTypes:'patch_asgn_types'}
+    Object.entries(fields).forEach(([k, f]) => { const v = val(f); if (v) body[k] = v })
+    request('ep-patch-assignment', 'PATCH', `/admin/assignments/${id}`, body)
+  }
+
+  function sendGradeSubmission() {
+    const id = val('grade_sub_id'), grade = val('grade_value')
+    if (!id || !grade) return alert('Submission ID and grade required')
+    const body = { grade: Number(grade) }
+    const fb = val('grade_feedback'); if (fb) body.feedback = fb
+    request('ep-grade-submission', 'PATCH', `/admin/submissions/${id}/grade`, body)
+  }
+
+  function sendScoreResult() {
+    const id = val('score_res_id'), score = val('score_value')
+    if (!id || !score) return alert('Result ID and score required')
+    request('ep-score-result', 'PATCH', `/admin/assessments/results/${id}/score`, { score: Number(score) })
+  }
+
+  function sendPaymentOverride() {
+    const studentId = val('ov_studentId'), status = val('ov_status')
+    if (!studentId || !status) return alert('studentId and status required')
+    const body = { status }
+    const amount = val('ov_amount'); if (amount) body.amountPaid = Number(amount)
+    request('ep-pay-override', 'PATCH', `/admin/payments/${studentId}/override`, body)
+  }
+
+  function sendMCQSubmit() {
+    const id = val('mcq_asmt_id'), raw = val('mcq_answers')
+    if (!id || !raw) return alert('Assessment ID and answers required')
+    try {
+      const answers = JSON.parse(raw)
+      request('ep-stu-submit-mcq', 'POST', `/student/assessments/${id}/submit`, { answers })
+    } catch { alert('Invalid JSON for answers') }
+  }
+</script>
+</body>
+</html>
