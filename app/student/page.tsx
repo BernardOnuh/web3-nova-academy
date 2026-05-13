@@ -33,13 +33,12 @@ export default function OnboardingFlow() {
   const audioRef      = useRef<HTMLAudioElement | null>(null);
   const rafRef        = useRef<number | null>(null);
   const startTimeRef  = useRef(0);
-  const monthRef      = useRef(0); // track inside RAF without stale closure
+  const monthRef      = useRef(0);
 
   const stopFela = () => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
   };
 
-  // ── Particle canvas ────────────────────────────────────────
   useEffect(() => {
     const canvas = document.getElementById('ob-particles') as HTMLCanvasElement;
     if (!canvas) return;
@@ -75,7 +74,6 @@ export default function OnboardingFlow() {
         ctx.fillStyle = `${p.color}${p.alpha})`;
         ctx.fill();
       });
-      // Draw faint connecting lines for nearby particles
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const dx = particles[i].x - particles[j].x;
@@ -96,6 +94,7 @@ export default function OnboardingFlow() {
     draw();
     return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
   }, []);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { window.location.href = '/login'; return; }
@@ -115,7 +114,6 @@ export default function OnboardingFlow() {
     }).catch(console.error).finally(() => setStep('welcome'));
   }, []);
 
-  // ── Progress-bar RAF loop ───────────────────────────────────
   const startProgress = useCallback((fromMonth: number) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     monthRef.current   = fromMonth;
@@ -128,7 +126,6 @@ export default function OnboardingFlow() {
       if (p < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
-        // auto-advance to next phase
         if (monthRef.current < 2) {
           const next = monthRef.current + 1;
           setDirection(1);
@@ -143,16 +140,13 @@ export default function OnboardingFlow() {
     rafRef.current = requestAnimationFrame(tick);
   }, []);
 
-  // Start/restart bar when entering curriculum or when month changes manually
   useEffect(() => {
     if (step !== 'curriculum') return;
-    // Only restart when it's a manual change (monthRef doesn't match)
     if (monthRef.current !== currentMonth) {
       startProgress(currentMonth);
     }
   }, [currentMonth, step, startProgress]);
 
-  // Kick off when first entering curriculum
   useEffect(() => {
     if (step === 'curriculum') {
       startProgress(0);
@@ -168,7 +162,6 @@ export default function OnboardingFlow() {
     startProgress(n);
   };
 
-  // ── Touch swipe ─────────────────────────────────────────────
   const touchX = useRef(0);
   const onTouchStart = (e: React.TouchEvent) => { touchX.current = e.touches[0].clientX; };
   const onTouchEnd   = (e: React.TouchEvent) => {
@@ -177,7 +170,6 @@ export default function OnboardingFlow() {
     if (dx >  50) goToMonth(currentMonth - 1);
   };
 
-  // ── Pay handlers ────────────────────────────────────────────
   const pay = async (type: string) => {
     const token = localStorage.getItem('token');
     const res  = await fetch(`${BASE}/payments/initiate`, {
@@ -189,7 +181,6 @@ export default function OnboardingFlow() {
     if (data.checkoutUrl) { stopFela(); window.location.href = data.checkoutUrl; }
   };
 
-  // ── Derived ─────────────────────────────────────────────────
   const months = curriculum.reduce((acc: CurriculumWeek[][], w) => {
     const i = Math.ceil(w.week / 4) - 1;
     if (!acc[i]) acc[i] = [];
@@ -199,7 +190,6 @@ export default function OnboardingFlow() {
   const theme     = monthThemes[currentMonth] || monthThemes[0];
   const ThemeIcon = theme.icon;
 
-  // ── Loading ──────────────────────────────────────────────────
   if (step === 'loading') return (
     <>
       <style>{`*{margin:0;padding:0;box-sizing:border-box;}body{background:#09090B;}`}</style>
@@ -229,11 +219,12 @@ export default function OnboardingFlow() {
         @keyframes orb-drift{0%{transform:translate(0,0) scale(1);}50%{transform:translate(28px,-18px) scale(1.07);}100%{transform:translate(-18px,28px) scale(0.94);}}
         #ob-particles{position:fixed;inset:0;pointer-events:none;z-index:0;}
         .ob-horizon{position:fixed;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent 0%,rgba(139,92,246,0.5) 30%,rgba(6,182,212,0.6) 60%,transparent 100%);box-shadow:0 0 24px rgba(139,92,246,0.35),0 0 48px rgba(6,182,212,0.2);z-index:1;pointer-events:none;}
-        .ob-container{position:relative;z-index:2;width:100%;max-width:480px;}
+
+        .ob-container{position:relative;z-index:2;width:66.666%;max-width:480px;min-width:320px;}
+
         .ob-card{backdrop-filter:blur(14px) !important;-webkit-backdrop-filter:blur(14px) !important;background:rgba(8,8,14,0.8) !important;border:1px solid rgba(139,92,246,0.18) !important;box-shadow:0 0 0 1px rgba(139,92,246,0.06),inset 0 1px 0 rgba(255,255,255,0.04) !important;}
         .ob-price-card{backdrop-filter:blur(14px) !important;-webkit-backdrop-filter:blur(14px) !important;background:rgba(8,8,14,0.8) !important;border:1px solid rgba(139,92,246,0.18) !important;}
 
-        /* Welcome */
         .ob-welcome{text-align:center;padding:20px 0;}
         .ob-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 20px;border-radius:100px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#A78BFA;margin-bottom:24px;}
         .ob-headline{font-family:'Playfair Display',Georgia,serif;font-size:44px;font-weight:800;line-height:1.1;letter-spacing:-0.03em;color:#FAFAFA;margin-bottom:8px;}
@@ -243,7 +234,6 @@ export default function OnboardingFlow() {
         .ob-stat-value{font-size:32px;font-weight:700;color:#FAFAFA;letter-spacing:-0.02em;}
         .ob-stat-label{font-size:11px;color:#52525B;letter-spacing:0.06em;text-transform:uppercase;margin-top:4px;}
 
-        /* CTA button */
         .ob-btn-wrap{position:relative;display:inline-block;}
         .ob-btn-wrap::before{content:'';position:absolute;inset:-6px;border-radius:100px;background:conic-gradient(from var(--angle,0deg),#8B5CF6,#06B6D4,#F59E0B,#8B5CF6);opacity:0;transition:opacity 0.3s;filter:blur(8px);animation:spin-angle 3s linear infinite;}
         .ob-btn-wrap:hover::before{opacity:0.7;}
@@ -256,18 +246,15 @@ export default function OnboardingFlow() {
         .ob-btn:hover .ob-btn-arrow{transform:translateX(4px);}
         .ob-btn-arrow{transition:transform 0.18s cubic-bezier(0.34,1.56,0.64,1);}
 
-        /* Curriculum */
         .ob-curriculum{display:flex;flex-direction:column;align-items:center;gap:20px;}
         .ob-month-header{text-align:center;}
         .ob-month-badge{font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#71717A;margin-bottom:6px;}
         .ob-month-name{font-family:'Playfair Display',Georgia,serif;font-size:36px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px;}
 
-        /* Progress bars */
         .ob-progress-bars{display:flex;gap:8px;width:100%;}
         .ob-progress-track{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden;cursor:pointer;}
         .ob-progress-fill{height:100%;border-radius:2px;}
 
-        /* Card */
         .ob-card{width:100%;background:#0C0C10;border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:28px;min-height:400px;touch-action:pan-y;user-select:none;}
         .ob-card-header{display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.06);}
         .ob-card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;}
@@ -280,14 +267,12 @@ export default function OnboardingFlow() {
         .ob-week-label{font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#52525B;margin-bottom:3px;}
         .ob-week-title{font-size:14px;font-weight:600;color:#E4E4E7;line-height:1.3;letter-spacing:-0.01em;}
 
-        /* Nav */
         .ob-nav{display:flex;align-items:center;gap:32px;}
         .ob-nav-btn{width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#71717A;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;}
         .ob-nav-btn:hover:not(:disabled){border-color:rgba(255,255,255,0.2);color:#FAFAFA;background:rgba(255,255,255,0.03);}
         .ob-nav-btn:disabled{opacity:0.25;cursor:not-allowed;}
         .ob-nav-hint{font-size:12px;color:#52525B;letter-spacing:0.03em;user-select:none;}
 
-        /* Payment */
         .ob-payment{text-align:center;}
         .ob-price-card{width:100%;background:#0C0C10;border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:36px 28px;margin:28px 0 24px;}
         .ob-price-label{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#52525B;margin-bottom:12px;}
@@ -301,19 +286,22 @@ export default function OnboardingFlow() {
         .ob-pay-secondary{background:transparent;border:1px solid rgba(255,255,255,0.12);color:#A1A1AA;}
         .ob-pay-secondary:hover{border-color:rgba(255,255,255,0.2);color:#FAFAFA;}
         .ob-deadline{font-size:12px;color:#52525B;margin-top:20px;line-height:1.5;}
+
+        @media (max-width: 600px) {
+          .ob-container{width:100%;min-width:0;}
+        }
       `}</style>
 
       <div className="ob-root">
-        {/* Futuristic background layers */}
         <div className="ob-orb ob-orb-1" />
         <div className="ob-orb ob-orb-2" />
         <div className="ob-orb ob-orb-3" />
         <canvas id="ob-particles" />
         <div className="ob-horizon" />
+
         <div className="ob-container">
           <AnimatePresence mode="wait">
 
-            {/* WELCOME */}
             {step === 'welcome' && (
               <motion.div key="welcome" className="ob-welcome"
                 initial={{ opacity:0, y:30 }} animate={{ opacity:1, y:0 }}
@@ -332,7 +320,6 @@ export default function OnboardingFlow() {
                 </div>
                 <div className="ob-btn-wrap">
                   <button className="ob-btn" onClick={() => {
-                    // Start music on first real user tap — guaranteed to work
                     if (!audioRef.current) {
                       const audio = new Audio('/fela.mp3');
                       audio.loop   = true;
@@ -349,7 +336,6 @@ export default function OnboardingFlow() {
               </motion.div>
             )}
 
-            {/* CURRICULUM */}
             {step === 'curriculum' && (
               <motion.div key="curriculum" className="ob-curriculum"
                 initial={{ opacity:0 }} animate={{ opacity:1 }}
@@ -360,7 +346,6 @@ export default function OnboardingFlow() {
                   <div className="ob-month-name" style={{ color: theme.color }}>{theme.name}</div>
                 </div>
 
-                {/* Progress bars */}
                 <div className="ob-progress-bars">
                   {[0,1,2].map(i => {
                     const isPast   = i < currentMonth;
@@ -379,7 +364,6 @@ export default function OnboardingFlow() {
                   })}
                 </div>
 
-                {/* Card */}
                 <motion.div key={currentMonth} className="ob-card"
                   initial={{ x: direction * 80, opacity:0 }}
                   animate={{ x:0, opacity:1 }}
@@ -421,7 +405,6 @@ export default function OnboardingFlow() {
                   </div>
                 </motion.div>
 
-                {/* Manual nav */}
                 <div className="ob-nav">
                   <button className="ob-nav-btn" onClick={() => goToMonth(currentMonth - 1)} disabled={currentMonth === 0}>
                     <ChevronLeft size={22} strokeWidth={1.5} />
@@ -436,7 +419,6 @@ export default function OnboardingFlow() {
                   </button>
                 </div>
 
-                {/* Last-phase CTA */}
                 {currentMonth === 2 && (
                   <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.3 }}>
                     {isPaid ? (
@@ -451,7 +433,6 @@ export default function OnboardingFlow() {
                     ) : (
                       <div className="ob-btn-wrap">
                         <button className="ob-btn" onClick={() => {
-                          // Audio already playing from "See What's Inside" — just move to payment
                           if (!audioRef.current) {
                             const audio = new Audio('/fela.mp3');
                             audio.loop   = true;
@@ -471,7 +452,6 @@ export default function OnboardingFlow() {
               </motion.div>
             )}
 
-            {/* PAYMENT */}
             {step === 'payment' && (
               <motion.div key="payment" className="ob-payment"
                 initial={{ opacity:0, y:30 }} animate={{ opacity:1, y:0 }}
@@ -507,7 +487,6 @@ export default function OnboardingFlow() {
                   </p>
                 )}
 
-                {/* Defer option */}
                 <div style={{ marginTop:'28px', padding:'20px', borderRadius:'14px', border:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.02)' }}>
                   <p style={{ fontSize:'13px', color:'#52525B', marginBottom:'14px', lineHeight:'1.5' }}>
                     Not ready to pay today?
