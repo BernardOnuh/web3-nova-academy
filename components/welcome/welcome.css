@@ -1,0 +1,143 @@
+/* Web3Nova "Wrapped"-style welcome story */
+
+.wrap-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
+  color: #fff;
+  background: var(--wrap-bg, #08090d);
+  transition: background 0.6s ease;
+}
+.wrap-root input,
+.wrap-root textarea { user-select: text; }
+
+/* drifting colour blobs behind every slide */
+.wrap-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  animation: wrap-drift 14s ease-in-out infinite alternate;
+  pointer-events: none;
+  transition: background 0.8s ease;
+}
+.wrap-blob--a { width: 60vmax; height: 60vmax; left: -20vmax; top: -18vmax; background: var(--wrap-a); }
+.wrap-blob--b { width: 50vmax; height: 50vmax; right: -18vmax; bottom: -20vmax; background: var(--wrap-b); animation-duration: 18s; animation-direction: alternate-reverse; }
+.wrap-blob--c { width: 26vmax; height: 26vmax; right: 12vw; top: 14vh; background: var(--wrap-c); animation-duration: 11s; }
+
+@keyframes wrap-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(6vw, 4vh) scale(1.12); }
+  100% { transform: translate(-4vw, 8vh) scale(0.94); }
+}
+
+/* darkens the reading area so white text always has strong contrast */
+.wrap-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 70% at 35% 55%, rgba(0, 0, 0, 0.42), transparent 75%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.25), transparent 30%, transparent 70%, rgba(0, 0, 0, 0.3));
+}
+
+.wrap-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: overlay;
+}
+
+/* progress segments, like stories */
+.wrap-progress { display: flex; gap: 4px; }
+.wrap-progress span { flex: 1; height: 3px; border-radius: 999px; background: rgba(255, 255, 255, 0.25); overflow: hidden; }
+.wrap-progress span i { display: block; height: 100%; width: 0; background: #fff; transition: width 0.45s ease; }
+.wrap-progress span.is-done i { width: 100%; }
+.wrap-progress span.is-current i { width: 100%; }
+
+/* entrance animations — stagger with style={{ '--d': '200ms' }} */
+.rise { opacity: 0; animation: wrap-rise 0.8s cubic-bezier(0.2, 0.9, 0.2, 1) forwards; animation-delay: var(--d, 0ms); }
+@keyframes wrap-rise {
+  from { opacity: 0; transform: translateY(28px) scale(0.98); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+.pop { opacity: 0; animation: wrap-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; animation-delay: var(--d, 0ms); }
+@keyframes wrap-pop {
+  from { opacity: 0; transform: scale(0.4) rotate(-6deg); }
+  to   { opacity: 1; transform: none; }
+}
+
+.slam { opacity: 0; animation: wrap-slam 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) forwards; animation-delay: var(--d, 0ms); }
+@keyframes wrap-slam {
+  0%   { opacity: 0; transform: scale(2.4); letter-spacing: 0.2em; }
+  60%  { opacity: 1; transform: scale(0.96); }
+  100% { opacity: 1; transform: none; }
+}
+
+.float { animation: wrap-float 4s ease-in-out infinite; animation-delay: var(--d, 0ms); }
+@keyframes wrap-float {
+  0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+  50%      { transform: translateY(-14px) rotate(calc(var(--r, 0deg) * -1)); }
+}
+
+/* marquee band for "Learn · Build · Earn" */
+.wrap-marquee { display: flex; width: max-content; animation: wrap-marquee 18s linear infinite; }
+@keyframes wrap-marquee { to { transform: translateX(-50%); } }
+
+/* word that sweeps in, then gets an underline */
+.sweep { position: relative; display: inline-block; opacity: 0; animation: wrap-rise 0.7s cubic-bezier(0.2, 0.9, 0.2, 1) forwards; animation-delay: var(--d, 0ms); }
+.sweep::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0.05em;
+  height: 0.12em;
+  border-radius: 999px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: wrap-underline 0.6s ease forwards;
+  animation-delay: calc(var(--d, 0ms) + 450ms);
+  opacity: 0.6;
+}
+@keyframes wrap-underline { to { transform: scaleX(1); } }
+
+/* confetti for the points reveal */
+.confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.confetti i {
+  position: absolute;
+  top: -12px;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0.9;
+  animation: wrap-fall linear forwards;
+}
+@keyframes wrap-fall {
+  to { transform: translate3d(var(--x, 0), 110vh, 0) rotate(720deg); }
+}
+
+/* pulsing ring around the countdown */
+.ring-pulse { animation: wrap-ring 2.4s ease-out infinite; }
+@keyframes wrap-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
+  100% { box-shadow: 0 0 0 28px rgba(255, 255, 255, 0); }
+}
+
+.swipe-hint { animation: wrap-nudge 1.8s ease-in-out infinite; }
+@keyframes wrap-nudge {
+  0%, 100% { transform: translateX(0); opacity: 0.6; }
+  50%      { transform: translateX(var(--nx, 8px)); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wrap-blob, .float, .wrap-marquee, .swipe-hint, .ring-pulse { animation: none; }
+  .rise, .pop, .slam, .sweep { animation-duration: 0.01ms; animation-delay: 0ms; }
+  .sweep::after { animation-duration: 0.01ms; animation-delay: 0ms; }
+  .confetti { display: none; }
+}

@@ -1,141 +1,169 @@
 // app/login/page.tsx
 "use client";
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE!;
+import { Suspense, useEffect, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AlertCircle, ArrowRight, AtSign, Lock, Mail } from 'lucide-react';
+import { api, errorMessage } from '@/lib/api';
+import { getSession, homeFor, saveSession } from '@/lib/session';
+import LeaderboardCarousel from '@/components/leaderboard-carousel';
+import LiquidBackground, { splash } from '@/components/liquid-background';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowRight, AlertCircle } from 'lucide-react';
+type Mode = 'v2' | 'v1';
+interface LoginResponse { token: string; user: { role: string } }
 
-export default function LoginPage() {
+/** only allow same-site relative redirects */
+const safeNext = (next: string | null) => (next && next.startsWith('/') && !next.startsWith('//') ? next : null);
+
+function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const params = useSearchParams();
+  const next = safeNext(params.get('next'));
+
+  const [mode, setMode] = useState<Mode>('v2');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // already signed in → skip the form
+  useEffect(() => {
+    const s = getSession();
+    if (s) router.replace(next ?? homeFor(s.role));
+  }, [router, next]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-    setErrorMessage(''); // Clear previous errors
-
+    setLoading(true);
+    setError('');
     try {
-      // --- 🚨 DEV BACKDOOR: REMOVE BEFORE LAUNCH 🚨 ---
-      if (email === 'devadmin') {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        localStorage.setItem('token', 'dev-bypass');
-        localStorage.setItem('userRole', 'ADMIN');
-        router.push('/admin');
-        return;
-      }
-      if (email === 'devstudent') {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        localStorage.setItem('token', 'dev-bypass');
-        localStorage.setItem('userRole', 'STUDENT');
-        router.push('/student');
-        return;
-      }
-      // ------------------------------------------------
-
-      // Hitting the live Render backend
-      const response = await fetch(`${BASE}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      // Handle errors from the backend (e.g., wrong password, user not found)
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to authenticate');
-      }
-
-      // Success! Store the JWT token and role in localStorage
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('userRole', data.user.role);
-      
-      // Redirect based on role exactly as specified in the docs
-      if (data.user.role === 'ADMIN') {
-        router.push('/admin');
-      } else {
-        router.push('/student');
-      }
-      
-    } catch (error: any) {
-      // If it fails to fetch completely, it might be waking up or CORS blocked
-      if (error.message === 'Failed to fetch') {
-        setErrorMessage("Server is waking up or unreachable. Please try again in 30 seconds.");
-      } else {
-        setErrorMessage(error.message);
-      }
-    } finally {
-      setIsLoading(false);
+      const data =
+        mode === 'v2'
+          ? await api<LoginResponse>('/v2/auth/login', { body: { studentName: identifier.trim().toLowerCase(), password }, auth: false })
+          : await api<LoginResponse>('/auth/login', { body: { email: identifier.trim(), password }, auth: false });
+      saveSession(data.token, data.user.role);
+      const home = homeFor(data.user.role);
+      router.push(next && next.startsWith(home) ? next : home);
+    } catch (err) {
+      setError(errorMessage(err));
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Glows */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] -z-10" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[120px] -z-10" />
+    <div className="liquid-card relative z-10 w-full max-w-md rounded-3xl p-8 sm:p-10">
+      <div className="mb-8 text-center">
+        <Link href="/">
+          <Image
+            src="/web3nova-logo-white.png"
+            alt="Web3Nova"
+            width={1200}
+            height={359}
+            preload
+            className="mx-auto mb-5 h-12 w-auto drop-shadow-[0_0_18px_rgba(35,137,219,0.55)]"
+          />
+        </Link>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-gold">Academy Portal</p>
+        <p className="text-sm text-gray-200">Sign in to access your learning portal</p>
+      </div>
 
-      <div className="w-full max-w-md bg-[#111111]/80 backdrop-blur-xl border border-gray-800 p-8 rounded-2xl shadow-2xl">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 mb-2">
-            Web3Nova Academy
-          </h1>
-          <p className="text-gray-400 text-sm">Sign in to access your learning portal</p>
+      {error && (
+        <div role="alert" className="mb-6 flex items-center gap-3 rounded-xl border border-danger/25 bg-danger/10 p-3 text-sm text-danger">
+          <AlertCircle size={18} className="shrink-0" />
+          <p>{error}</p>
+        </div>
+      )}
+
+      <div className="mb-6 flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1" role="tablist">
+        {([['v2', 'Intake student'], ['v1', 'Staff & email']] as const).map(([m, label]) => (
+          <button
+            key={m}
+            type="button"
+            role="tab"
+            aria-selected={mode === m}
+            onClick={() => { setMode(m); setError(''); setIdentifier(''); }}
+            className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${mode === m ? 'bg-brand text-white' : 'text-gray-400 hover:text-white'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={handleLogin} className="space-y-5">
+        <div>
+          <label htmlFor="identifier" className="mb-1.5 block text-sm font-medium text-white">
+            {mode === 'v2' ? 'Username' : 'Email address'}
+          </label>
+          <div className="liquid-input">
+            {mode === 'v2' ? <AtSign size={18} className="shrink-0 text-gray-400" /> : <Mail size={18} className="shrink-0 text-gray-400" />}
+            <input
+              id="identifier"
+              type={mode === 'v2' ? 'text' : 'email'}
+              autoComplete="username"
+              autoCapitalize="none"
+              required
+              value={identifier}
+              onChange={e => { setIdentifier(e.target.value); splash(e.currentTarget); }}
+              className="w-full bg-transparent text-white placeholder:text-gray-500 focus:outline-none"
+              placeholder={mode === 'v2' ? 'e.g. ada.obi' : 'you@web3nova.org'}
+            />
+          </div>
         </div>
 
-        {/* Error Message Banner */}
-        {errorMessage && (
-          <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 text-red-400 text-sm">
-            <AlertCircle size={18} className="shrink-0" />
-            <p>{errorMessage}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Email Address</label>
-            <input 
-              type="email" 
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-[#0A0A0A] border border-gray-800 rounded-lg px-4 py-3 text-gray-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-              placeholder="student@web3nova.org"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
-            <input 
-              type="password" 
+        <div>
+          <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-white">Password</label>
+          <div className="liquid-input">
+            <Lock size={18} className="shrink-0 text-gray-400" />
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
               required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-[#0A0A0A] border border-gray-800 rounded-lg px-4 py-3 text-gray-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+              onChange={e => { setPassword(e.target.value); splash(e.currentTarget); }}
+              className="w-full bg-transparent text-white placeholder:text-gray-500 focus:outline-none"
               placeholder="••••••••"
             />
-            <p className="text-xs text-gray-500 mt-2">
-              First-time login? Your password is your first name, lowercase.
-            </p>
           </div>
+          {mode === 'v1' && (
+            <p className="mt-2 text-xs text-gray-400">First-time login? Your password is your first name, lowercase.</p>
+          )}
+        </div>
 
-          <button 
-            type="submit" 
-            disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors flex items-center justify-center space-x-2 mt-2"
-          >
-            <span>{isLoading ? 'Authenticating...' : 'Sign In'}</span>
-            {!isLoading && <ArrowRight size={18} />}
-          </button>
-        </form>
+        <button
+          type="submit"
+          disabled={loading}
+          className="liquid-button mt-2 w-full rounded-xl py-3.5 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="liquid-button__wave" aria-hidden="true" />
+          <span className="relative z-10 flex items-center justify-center gap-2">
+            {loading ? 'Signing in…' : <>Sign in <ArrowRight size={18} /></>}
+          </span>
+        </button>
+      </form>
+
+      {mode === 'v2' && (
+        <p className="mt-6 text-center text-sm text-gray-400">
+          New to the intake?{' '}
+          <Link href="/register" className="font-semibold text-brand-soft hover:text-white">Create your account</Link>
+        </p>
+      )}
+
+      <div className="mt-6 border-t border-white/10 pt-6">
+        <LeaderboardCarousel compact />
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <LiquidBackground>
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
+    </LiquidBackground>
   );
 }

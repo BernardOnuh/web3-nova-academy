@@ -1,143 +1,196 @@
-// app/student/assignments/page.tsx
+// app/student/assignments/page.tsx — open weekly assignments (GET /student/assignments)
 "use client";
 
-import { useEffect, useState } from 'react';
-import { CheckSquare, UploadCloud, Loader2, CheckCircle2, ExternalLink, Clock } from 'lucide-react';
-
-const BASE = process.env.NEXT_PUBLIC_API_BASE!;
+import { useState } from 'react';
+import { CheckCircle2, CheckSquare, ChevronDown, Clock, FileText, UploadCloud } from 'lucide-react';
+import { api, errorMessage } from '@/lib/api';
+import { useApi } from '@/lib/use-api';
+import { formatDateTime } from '@/lib/format';
+import { useFeedback } from '@/components/feedback';
+import { Alert, Badge, Button, Card, DataState, EmptyState, FileInput, Input, PageHeader, Spinner, cx } from '@/components/ui';
 
 interface Assignment {
   id: string;
   title: string;
   description: string;
-  dueDate: string;
+  openAt: string;
+  closeAt: string;
 }
 
-export default function StudentAssignmentsPage() {
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [submitting, setSubmitting] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState<Record<string, string>>({});
-  const [activeUpload, setActiveUpload] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+interface AssignmentDetail extends Assignment {
+  questionText: string | null;
+  questionDocUrl: string | null;
+  allowedSubmissionTypes: string;
+  submission: { id: string; submissionType: string; cloudinaryUrl: string | null; contentUrl: string | null; submittedAt: string; updatedAt: string } | null;
+}
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${BASE}/student/assignments`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setAssignments(data); })
-      .catch(console.error)
-      .finally(() => setIsLoading(false));
-  }, []);
+const TYPE_LABEL: Record<string, string> = {
+  pdf: 'PDF', doc: 'Document', url: 'Link', image: 'Image', video: 'Video', code: 'Code file',
+};
+const TYPE_ACCEPT: Record<string, string> = {
+  pdf: 'application/pdf', doc: '.doc,.docx,.odt,.txt', image: 'image/*', video: 'video/*',
+};
 
-  const handleSubmit = async (assignmentId: string) => {
-    if (!selectedFile) return;
-    setSubmitting(assignmentId);
+function parseTypes(raw: string): string[] {
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) && v.length ? v : ['pdf'];
+  } catch {
+    return ['pdf'];
+  }
+}
+
+function AssignmentPanel({ id }: { id: string }) {
+  const { toast } = useFeedback();
+  const detail = useApi<AssignmentDetail>(`/student/assignments/${id}`);
+  const types = detail.data ? parseTypes(detail.data.allowedSubmissionTypes) : [];
+  const [type, setType] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const active = type ?? types[0];
+
+  const submit = async () => {
+    setError(null);
+    const fd = new FormData();
+    fd.append('submissionType', active);
+    if (active === 'url') {
+      if (!/^https?:\/\//.test(url)) return setError('Enter a full link starting with http:// or https://');
+      fd.append('contentUrl', url);
+    } else {
+      if (!file) return setError('Choose a file to upload.');
+      fd.append('file', file);
+    }
+    setSaving(true);
     try {
-      const token = localStorage.getItem('token');
-      const form = new FormData();
-      form.append('file', selectedFile);
-      const res = await fetch(`${BASE}/student/assignments/${assignmentId}/submit`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSubmitted(prev => ({ ...prev, [assignmentId]: data.cloudinaryUrl }));
-        setActiveUpload(null);
-        setSelectedFile(null);
-      } else {
-        alert(data.error || 'Submission failed.');
-      }
-    } catch {
-      alert('Network error. Try again.');
+      await api(`/student/assignments/${id}/submit`, { form: fd });
+      toast(detail.data?.submission ? 'Submission updated' : 'Assignment submitted');
+      setFile(null);
+      setUrl('');
+      detail.reload();
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
-      setSubmitting(null);
+      setSaving(false);
     }
   };
 
-  const isPastDue = (dueDate: string) => new Date(dueDate) < new Date();
+  if (detail.loading) return <div className="flex justify-center py-6"><Spinner /></div>;
+  if (detail.error || !detail.data) return <Alert>{detail.error ?? 'Could not load this assignment.'}</Alert>;
+  const d = detail.data;
+  const sub = d.submission;
+  const link = sub?.cloudinaryUrl ?? sub?.contentUrl;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h2 className="text-3xl font-bold text-white">Assignments</h2>
-        <p className="text-gray-400">Submit your work before the deadline.</p>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-20 text-gray-500">
-          <Loader2 className="animate-spin mr-2" size={24} />
-        </div>
-      ) : assignments.length === 0 ? (
-        <div className="bg-[#111111] border border-gray-800 rounded-xl p-16 text-center flex flex-col items-center text-gray-500">
-          <CheckSquare size={48} className="mb-4 text-gray-700" />
-          <p>No assignments posted yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {assignments.map(asgn => {
-            const done = !!submitted[asgn.id];
-            const overdue = isPastDue(asgn.dueDate);
-            const isOpen = activeUpload === asgn.id;
-
-            return (
-              <div key={asgn.id} className="bg-[#111111] border border-gray-800 rounded-xl p-6 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <h4 className="text-white font-bold text-lg">{asgn.title}</h4>
-                    <p className="text-gray-400 text-sm mt-1">{asgn.description}</p>
-                    <p className={`text-xs mt-2 flex items-center gap-1 font-medium ${overdue && !done ? 'text-red-400' : 'text-gray-500'}`}>
-                      <Clock size={12} />
-                      Due: {new Date(asgn.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      {overdue && !done && ' — OVERDUE'}
-                    </p>
-                  </div>
-                  <div className="shrink-0">
-                    {done ? (
-                      <div className="flex items-center gap-2 text-green-400 text-sm font-semibold">
-                        <CheckCircle2 size={18} /> Submitted
-                        <a href={submitted[asgn.id]} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 ml-1">
-                          <ExternalLink size={14} />
-                        </a>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => { setActiveUpload(isOpen ? null : asgn.id); setSelectedFile(null); }}
-                        disabled={overdue}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                      >
-                        <UploadCloud size={16} /> {isOpen ? 'Cancel' : 'Submit Work'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {isOpen && !done && (
-                  <div className="bg-[#0A0A0A] border border-gray-800 rounded-xl p-4 flex flex-col sm:flex-row items-end gap-4">
-                    <div className="flex-1 w-full">
-                      <label className="block text-xs font-medium text-gray-500 uppercase mb-2">Select File</label>
-                      <input
-                        type="file"
-                        className="w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-500/10 file:text-blue-400 file:text-sm"
-                        onChange={e => setSelectedFile(e.target.files?.[0] || null)}
-                      />
-                    </div>
-                    <button
-                      disabled={!selectedFile || submitting === asgn.id}
-                      onClick={() => handleSubmit(asgn.id)}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900/50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg text-sm font-bold min-w-[140px] justify-center whitespace-nowrap"
-                    >
-                      {submitting === asgn.id ? <Loader2 className="animate-spin" size={18} /> : 'Upload & Submit'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+    <div className="space-y-5">
+      {(d.questionText || d.questionDocUrl) && (
+        <div className="rounded-xl border border-line bg-ink/50 p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gold">Brief</p>
+          {d.questionText && <p className="whitespace-pre-line text-sm text-gray-200">{d.questionText}</p>}
+          {d.questionDocUrl && (
+            <a href={d.questionDocUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-soft hover:text-white">
+              <FileText size={14} /> Open question document
+            </a>
+          )}
         </div>
       )}
+
+      {sub && (
+        <Alert tone="success">
+          Submitted {formatDateTime(sub.updatedAt ?? sub.submittedAt)} as {TYPE_LABEL[sub.submissionType] ?? sub.submissionType}.
+          {link && <> <a href={link} target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-2">View</a>.</>}
+          {' '}You can replace it until the deadline.
+        </Alert>
+      )}
+
+      <div>
+        <p className="mb-2 text-sm font-medium text-gray-200">Submit as</p>
+        <div className="flex flex-wrap gap-2" role="radiogroup">
+          {types.map(t => (
+            <button
+              key={t}
+              type="button"
+              role="radio"
+              aria-checked={active === t}
+              onClick={() => { setType(t); setFile(null); setError(null); }}
+              className={cx('rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+                active === t ? 'border-brand bg-brand/15 text-white' : 'border-line text-muted hover:text-white')}
+            >
+              {TYPE_LABEL[t] ?? t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        {active === 'url' ? (
+          <Input label="Link" type="url" placeholder="https://github.com/you/project" value={url} onChange={e => setUrl(e.target.value)} wrapperClassName="flex-1" />
+        ) : (
+          <FileInput
+            label="File"
+            accept={TYPE_ACCEPT[active]}
+            file={file}
+            onChange={e => setFile(e.target.files?.[0] ?? null)}
+            hint={active === 'video' ? 'Up to 50MB' : 'Up to 20MB'}
+            wrapperClassName="flex-1"
+          />
+        )}
+        <Button icon={UploadCloud} loading={saving} onClick={submit} className="sm:mb-6">
+          {sub ? 'Replace submission' : 'Submit'}
+        </Button>
+      </div>
+      {error && <Alert onDismiss={() => setError(null)}>{error}</Alert>}
     </div>
+  );
+}
+
+export default function StudentAssignmentsPage() {
+  const assignments = useApi<Assignment[]>('/student/assignments');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const list = Array.isArray(assignments.data) ? assignments.data : [];
+
+  return (
+    <>
+      <PageHeader title="Assignments" description="Weekly assignments open on Friday and close Monday night." />
+
+      <DataState loading={assignments.loading} error={assignments.error} onRetry={assignments.reload}>
+        {list.length === 0 ? (
+          <Card padded={false}>
+            <EmptyState icon={CheckSquare} title="No open assignments" description="This week's assignment will appear here when it opens." />
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {list.map(a => {
+              const open = openId === a.id;
+              return (
+                <Card key={a.id}>
+                  <button className="flex w-full items-start gap-4 text-left" onClick={() => setOpenId(open ? null : a.id)} aria-expanded={open}>
+                    <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand-soft"><CheckSquare size={20} /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-white">{a.title}</p>
+                      <p className={cx('mt-1 text-sm text-muted', !open && 'line-clamp-2')}>{a.description}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge tone="warning"><Clock size={11} /> Closes {formatDateTime(a.closeAt)}</Badge>
+                      </div>
+                    </div>
+                    <ChevronDown size={18} className={cx('mt-1 shrink-0 text-faint transition-transform', open && 'rotate-180')} />
+                  </button>
+                  {open && (
+                    <div className="mt-5 border-t border-line pt-5">
+                      <AssignmentPanel id={a.id} />
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </DataState>
+
+      <p className="mt-6 flex items-center gap-2 text-xs text-faint">
+        <CheckCircle2 size={14} /> Grades and feedback appear on the Grades page once your tutor marks your work.
+      </p>
+    </>
   );
 }

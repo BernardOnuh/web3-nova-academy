@@ -1,223 +1,112 @@
-// app/admin/tutors/page.tsx
+// app/admin/tutors/page.tsx — course admins (super admin only)
 "use client";
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE!;
-
-import { useState, useEffect, useCallback } from 'react';
-import { UserPlus, Loader2, ShieldCheck, Trash2 } from 'lucide-react';
-
-interface Course { id: string; name: string; }
-interface Tutor { id: string; name: string; email: string; courseId: string; }
+import { useState } from 'react';
+import { ShieldCheck, Trash2, UserPlus } from 'lucide-react';
+import { api, errorMessage } from '@/lib/api';
+import { useApi } from '@/lib/use-api';
+import type { Cohort, Course, Tutor } from '@/lib/types';
+import { useFeedback } from '@/components/feedback';
+import {
+  Alert, Avatar, Badge, Button, Card, CardHeader, DataState, EmptyState, IconButton, Input, PageHeader, Select, Table, Td, Tr,
+} from '@/components/ui';
 
 export default function TutorsPage() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [tutors, setTutors] = useState<Tutor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const [formData, setFormData] = useState({ name: '', email: '', courseId: '' });
+  const { toast, confirm } = useFeedback();
+  const courses = useApi<Course[]>('/admin/courses');
+  const cohorts = useApi<Cohort[]>('/admin/cohorts');
+  const tutors = useApi<Tutor[]>('/admin/admins');
+  const [form, setForm] = useState({ name: '', email: '', courseId: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // 1. We extract the fetch logic into a reusable function
-  const loadDatabase = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { 'Authorization': `Bearer ${token}` };
+  const cohortName = (id: string) => cohorts.data?.find(c => c.id === id)?.name;
+  const course = (id: string) => courses.data?.find(c => c.id === id);
+  // course admins only — the super admin has no courseId
+  const list = (tutors.data ?? []).filter(t => t.courseId);
 
-      const [courseRes, tutorRes] = await Promise.all([
-        fetch(`${BASE}/admin/courses`, { headers }),
-        fetch(`${BASE}/admin/admins`, { headers }).catch(() => null)
-      ]);
-
-      const courseData = await courseRes.json();
-      if (Array.isArray(courseData)) setCourses(courseData);
-
-      if (tutorRes && tutorRes.ok) {
-        const tutorData = await tutorRes.json();
-        // Bulletproof check: Safely extract array whether backend sends [...] or { admins: [...] }
-        const actualTutors = tutorData.admins || tutorData.data || tutorData.users || (Array.isArray(tutorData) ? tutorData : []);
-        setTutors(actualTutors);
-      }
-    } catch (err) {
-      console.error("Failed to load data", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Run on initial load
-  useEffect(() => {
-    loadDatabase();
-  }, [loadDatabase]);
-
-  const handleAddTutor = async (e: React.FormEvent) => {
+  const add = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
+    setSaving(true);
+    setError(null);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${BASE}/admin/admins`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to create tutor');
-      }
-
-      const responseData = await response.json();
-      // Safely extract the new tutor object
-      const newTutor = responseData.admin || responseData.user || responseData.data || responseData;
-
-      if (newTutor && newTutor.id) {
-        // If we found it, instantly update the UI
-        setTutors(prev => [newTutor, ...prev]);
-      } else {
-        // If the backend sent a weird response, just quietly re-download the database!
-        await loadDatabase();
-      }
-      
-      // Reset the form
-      setFormData({ name: '', email: '', courseId: '' }); 
-      alert("Tutor successfully assigned!");
-
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
+      const tutor = await api<Tutor>('/admin/admins', { body: form });
+      tutors.setData(prev => [tutor, ...(prev ?? [])]);
+      setForm({ name: '', email: '', courseId: '' });
+      toast(`${tutor.name} can now sign in`);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
-      setIsSubmitting(false);
+      setSaving(false);
     }
   };
 
-  const getCourseName = (id: string) => courses.find(c => c.id === id)?.name || "Unknown Course";
-
-  const handleDeleteTutor = async (tutorId: string) => {
-    if (!confirm('Remove this tutor?')) return;
+  const remove = async (t: Tutor) => {
+    if (!(await confirm({ title: `Remove ${t.name}?`, description: 'They will lose access to the admin portal.', confirmLabel: 'Remove', danger: true }))) return;
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${BASE}/admin/admins/${tutorId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      setTutors(tutors.filter(t => t.id !== tutorId));
-    } catch (err: any) { alert(err.message); }
+      await api(`/admin/admins/${t.id}`, { method: 'DELETE' });
+      tutors.setData(prev => (prev ?? []).filter(x => x.id !== t.id));
+      toast(`${t.name} removed`);
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    }
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h2 className="text-3xl font-bold text-white">Course Administrators</h2>
-        <p className="text-gray-400">Assign tutors to lead specific academic courses.</p>
-      </div>
+    <>
+      <PageHeader title="Tutors" description="Course admins can manage materials, coursework and students for their course." />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Add Tutor Form */}
-        <div className="lg:col-span-1 bg-[#111111] border border-gray-800 p-6 rounded-2xl h-fit">
-          <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-            <UserPlus size={20} className="text-purple-400" />
-            Add New Tutor
-          </h3>
-          
-          <form onSubmit={handleAddTutor} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Full Name</label>
-              <input 
-                type="text" required
-                className="w-full bg-[#0A0A0A] border border-gray-800 rounded-lg px-4 py-2 text-white focus:border-purple-500 outline-none transition-all"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Email Address</label>
-              <input 
-                type="email" required
-                className="w-full bg-[#0A0A0A] border border-gray-800 rounded-lg px-4 py-2 text-white focus:border-purple-500 outline-none transition-all"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Assign Course</label>
-              <select 
-                required
-                className="w-full bg-[#0A0A0A] border border-gray-800 rounded-lg px-4 py-2 text-white focus:border-purple-500 outline-none transition-all"
-                value={formData.courseId}
-                onChange={(e) => setFormData({...formData, courseId: e.target.value})}
-              >
-                <option value="">Select a Course</option>
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>{course.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800/50 text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2 mt-4"
-            >
-              {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : "Create Account"}
-            </button>
-            <p className="text-[10px] text-gray-500 text-center mt-2 italic">
-              * Password defaults to the tutor's first name (lowercase)
-            </p>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="h-fit">
+          <CardHeader title="Add tutor" icon={UserPlus} />
+          <form onSubmit={add} className="space-y-4">
+            {error && <Alert onDismiss={() => setError(null)}>{error}</Alert>}
+            <Input label="Full name" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+            <Input label="Email" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+            <Select label="Course" required value={form.courseId} onChange={e => setForm({ ...form, courseId: e.target.value })}>
+              <option value="">Select a course</option>
+              {courses.data?.map(c => (
+                <option key={c.id} value={c.id}>{c.name}{cohortName(c.cohortId) ? ` — ${cohortName(c.cohortId)}` : ''}</option>
+              ))}
+            </Select>
+            <Button type="submit" className="w-full" loading={saving}>Create account</Button>
+            <p className="text-center text-xs text-faint">Their password defaults to their first name, lowercase.</p>
           </form>
-        </div>
+        </Card>
 
-        {/* Tutors List */}
-        <div className="lg:col-span-2 bg-[#111111] border border-gray-800 rounded-2xl overflow-hidden flex flex-col">
-           <div className="p-6 border-b border-gray-800 bg-[#1A1A1A]/30">
-              <h3 className="font-bold text-white">Active Tutors</h3>
-           </div>
-           
-           {isLoading ? (
-             <div className="p-12 flex justify-center text-gray-500">
-               <Loader2 className="animate-spin" size={24} />
-             </div>
-           ) : tutors.length > 0 ? (
-             <div className="overflow-x-auto">
-               <table className="w-full text-left">
-                 <thead className="bg-[#0A0A0A] text-gray-500 text-xs uppercase tracking-wider">
-                   <tr>
-                     <th className="px-6 py-4">Name</th>
-                     <th className="px-6 py-4">Email</th>
-                     <th className="px-6 py-4">Assigned Course</th>
-                     <th className="px-6 py-4"></th>
-                   </tr>
-                 </thead>
-                 <tbody className="divide-y divide-gray-800">
-                   {tutors.map((tutor, i) => (
-                     <tr key={tutor.id || i} className="hover:bg-gray-800/30 transition-colors group">
-                       <td className="px-6 py-4 text-white font-medium">{tutor.name}</td>
-                       <td className="px-6 py-4 text-gray-400 text-sm">{tutor.email}</td>
-                       <td className="px-6 py-4 text-purple-400 text-sm font-medium">{getCourseName(tutor.courseId)}</td>
-                       <td className="px-6 py-4">
-                         <button
-                           onClick={() => handleDeleteTutor(tutor.id)}
-                           className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-                         >
-                           <Trash2 size={15} />
-                         </button>
-                       </td>
-                     </tr>
-                   ))}
-                 </tbody>
-               </table>
-             </div>
-           ) : (
-             <div className="p-12 text-center">
-                <ShieldCheck size={48} className="mx-auto text-gray-700 mb-4" />
-                <p className="text-gray-500">No tutors have been added yet.</p>
-             </div>
-           )}
-        </div>
+        <Card padded={false} className="overflow-hidden lg:col-span-2">
+          <div className="p-5 pb-0 sm:p-6 sm:pb-0"><CardHeader title="Active tutors" icon={ShieldCheck} /></div>
+          <DataState loading={tutors.loading} error={tutors.error} onRetry={tutors.reload}>
+            {list.length === 0 ? (
+              <EmptyState icon={ShieldCheck} title="No tutors yet" description="Add a tutor to give them access to their course." />
+            ) : (
+              <Table head={['Tutor', 'Course', '']}>
+                {list.map(t => {
+                  const c = course(t.courseId);
+                  return (
+                    <Tr key={t.id}>
+                      <Td>
+                        <div className="flex items-center gap-3">
+                          <Avatar name={t.name} size={32} />
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-white">{t.name}</p>
+                            <p className="truncate text-xs text-faint">{t.email}</p>
+                          </div>
+                        </div>
+                      </Td>
+                      <Td>
+                        <Badge tone="brand">{c?.name ?? 'Unknown course'}</Badge>
+                        {c && cohortName(c.cohortId) && <p className="mt-1 text-xs text-faint">{cohortName(c.cohortId)}</p>}
+                      </Td>
+                      <Td className="text-right"><IconButton icon={Trash2} label={`Remove ${t.name}`} tone="danger" onClick={() => remove(t)} /></Td>
+                    </Tr>
+                  );
+                })}
+              </Table>
+            )}
+          </DataState>
+        </Card>
       </div>
-    </div>
+    </>
   );
 }

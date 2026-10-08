@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# full-length source songs (only the trimmed clips in public/sounds ship)
+/*.mp3

@@ -1,130 +1,63 @@
-// app/admin/cohorts/new/page.tsx
+// app/admin/cohorts/page.tsx — list cohorts (GET /admin/cohorts)
 "use client";
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE!;
-
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Calendar, Layers, ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { BookOpen, CalendarDays, Layers, Plus, Users } from 'lucide-react';
+import { useApi } from '@/lib/use-api';
+import { formatDate, isPast, plural } from '@/lib/format';
+import type { Cohort } from '@/lib/types';
+import { Badge, ButtonLink, Card, DataState, EmptyState, PageHeader } from '@/components/ui';
 
-export default function CreateCohortPage() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    startDate: '',
-    endDate: ''
-  });
+function status(c: Cohort) {
+  if (isPast(c.endDate)) return { label: 'Ended', tone: 'neutral' as const };
+  if (isPast(c.startDate)) return { label: 'Running', tone: 'success' as const };
+  return { label: 'Upcoming', tone: 'brand' as const };
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      const token = localStorage.getItem('token');
-      
-      // 1. Create the Cohort[cite: 1, 2]
-      const response = await fetch(`${BASE}/admin/cohorts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const cohort = await response.json();
-
-      if (!response.ok) throw new Error(cohort.error || 'Failed to create cohort');
-
-      // 2. Automatically seed the 5 standard courses for this cohort[cite: 1, 2]
-      // (ZK, Rust & Protocol, AI & Automation, UI/UX, Smart Contract, Web Development)
-      await fetch(`${BASE}/admin/courses/seed/${cohort.id}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      // 3. Redirect back to the main admin dashboard
-      router.push('/admin');
-      
-    } catch (error: any) {
-      alert(error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+export default function CohortsPage() {
+  const cohorts = useApi<Cohort[]>('/admin/cohorts');
+  const list = [...(cohorts.data ?? [])].sort((a, b) => +new Date(b.startDate) - +new Date(a.startDate));
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-      <Link href="/admin" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
-        <ArrowLeft size={20} />
-        <span>Back to Dashboard</span>
-      </Link>
+    <>
+      <PageHeader
+        title="Cohorts"
+        description="Each cohort is one academic cycle with its own courses and students."
+        actions={<ButtonLink href="/admin/cohorts/new" icon={Plus}>New cohort</ButtonLink>}
+      />
 
-      <div>
-        <h2 className="text-3xl font-bold text-white">Create New Cohort</h2>
-        <p className="text-gray-400">Set up a new academic cycle and auto-generate standard courses.</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="bg-[#111111] border border-gray-800 p-8 rounded-2xl space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">Cohort Name</label>
-          <div className="relative">
-            <Layers className="absolute left-3 top-3 text-gray-500" size={20} />
-            <input 
-              type="text" 
-              required
-              placeholder="e.g. Cohort III"
-              className="w-full bg-[#0A0A0A] border border-gray-800 rounded-lg pl-10 pr-4 py-3 text-white focus:border-purple-500 outline-none transition-all"
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-            />
+      <DataState loading={cohorts.loading} error={cohorts.error} onRetry={cohorts.reload}>
+        {list.length === 0 ? (
+          <Card padded={false}>
+            <EmptyState icon={Layers} title="No cohorts yet" description="Create your first academic cycle to get started."
+              action={<ButtonLink href="/admin/cohorts/new" icon={Plus}>Create cohort</ButtonLink>} />
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {list.map(c => {
+              const st = status(c);
+              return (
+                <Link key={c.id} href={`/admin/cohorts/${c.id}`} className="group">
+                  <Card className="h-full transition-colors group-hover:border-brand/40">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="inline-flex size-10 items-center justify-center rounded-xl bg-brand/10 text-brand-soft"><Layers size={20} /></span>
+                      <Badge tone={st.tone}>{st.label}</Badge>
+                    </div>
+                    <p className="mt-4 text-lg font-semibold text-white group-hover:text-brand-soft">{c.name}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
+                      <CalendarDays size={14} /> {formatDate(c.startDate)} – {formatDate(c.endDate)}
+                    </p>
+                    <div className="mt-4 flex gap-4 border-t border-line pt-4 text-sm text-muted">
+                      <span className="inline-flex items-center gap-1.5"><Users size={14} /> {plural(c._count?.students ?? 0, 'student')}</span>
+                      <span className="inline-flex items-center gap-1.5"><BookOpen size={14} /> {plural(c._count?.courses ?? 0, 'course')}</span>
+                    </div>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Start Date</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-3 text-gray-500" size={20} />
-              <input 
-                type="date" 
-                required
-                className="w-full bg-[#0A0A0A] border border-gray-800 rounded-lg pl-10 pr-4 py-3 text-white focus:border-purple-500 outline-none transition-all"
-                value={formData.startDate}
-                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">End Date</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-3 text-gray-500" size={20} />
-              <input 
-                type="date" 
-                required
-                className="w-full bg-[#0A0A0A] border border-gray-800 rounded-lg pl-10 pr-4 py-3 text-white focus:border-purple-500 outline-none transition-all"
-                value={formData.endDate}
-                onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-              />
-            </div>
-          </div>
-        </div>
-
-        <button 
-          type="submit" 
-          disabled={isLoading}
-          className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800/50 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2"
-        >
-          {isLoading ? (
-            <Loader2 className="animate-spin" size={20} />
-          ) : (
-            "Initialize Cohort & Standard Courses"
-          )}
-        </button>
-      </form>
-    </div>
+        )}
+      </DataState>
+    </>
   );
 }

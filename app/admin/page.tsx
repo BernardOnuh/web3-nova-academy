@@ -1,143 +1,146 @@
-// app/admin/page.tsx
+// app/admin/page.tsx — admin overview
 "use client";
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE!;
-
-import { useEffect, useState } from 'react';
-import { Layers, Users, BookOpen, Plus, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { ArrowRight, BookOpen, ClipboardList, Layers, Plus, Trophy, Users } from 'lucide-react';
+import { useApi } from '@/lib/use-api';
+import { useSession } from '@/lib/use-session';
+import { isSuperAdmin } from '@/lib/session';
+import { formatDate, isPast, plural } from '@/lib/format';
+import type { AdminTest, Cohort, Course, Leaderboard } from '@/lib/types';
+import {
+  Avatar, Badge, ButtonLink, Card, CardHeader, DataState, EmptyState, PageHeader, StatCard, Table, Td, Tr,
+} from '@/components/ui';
 
-// Define the shape of a Cohort based on the backend data
-interface Cohort {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  _count: {
-    students: number;
-    courses: number;
-  };
+function cohortStatus(c: Cohort): { label: string; tone: 'success' | 'brand' | 'neutral' } {
+  if (isPast(c.endDate)) return { label: 'Ended', tone: 'neutral' };
+  if (isPast(c.startDate)) return { label: 'Running', tone: 'success' };
+  return { label: 'Upcoming', tone: 'brand' };
 }
 
-export default function AdminDashboard() {
-  const [cohorts, setCohorts] = useState<Cohort[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default function AdminOverview() {
+  const session = useSession();
+  const superAdmin = isSuperAdmin(session);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${BASE}/admin/cohorts`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        
-        // If the backend returns an array, update our state!
-        if (Array.isArray(data)) {
-          setCohorts(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch cohorts:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const cohorts = useApi<Cohort[]>(session && superAdmin ? '/admin/cohorts' : null);
+  const courses = useApi<Course[]>(session ? '/v2/admin/courses' : null);
+  const tests = useApi<AdminTest[]>(session ? '/v2/tests/admin/tests' : null);
+  const board = useApi<Leaderboard>('/v2/leaderboard?top=5', { auth: false });
 
-    fetchStats();
-  }, []);
-
-  // Calculate real live totals from the database array
-  const totalStudents = cohorts.reduce((acc, curr) => acc + (curr._count?.students || 0), 0);
-  const totalCourses = cohorts.reduce((acc, curr) => acc + (curr._count?.courses || 0), 0);
+  const courseList = courses.data ?? [];
+  const totalStudents = courseList.reduce((n, c) => n + (c._count?.students ?? 0), 0);
+  const totalAttempts = (tests.data ?? []).reduce((n, t) => n + (t._count?.attempts ?? 0), 0);
+  const myCourse = !superAdmin ? courseList[0] : undefined;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-white">System Overview</h2>
-          <p className="text-gray-400">Manage all cohorts and academy activity.</p>
-        </div>
-        <Link href="/admin/cohorts/new" className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-          <Plus size={20} />
-          <span>Create Cohort</span>
-        </Link>
-      </div>
+    <>
+      <PageHeader
+        eyebrow={superAdmin ? 'Super admin' : myCourse?.name ?? 'Course admin'}
+        title="Overview"
+        description={superAdmin ? 'Everything happening across the academy.' : 'Your course at a glance.'}
+        actions={
+          superAdmin ? (
+            <>
+              <ButtonLink href="/admin/tests/new" variant="secondary" icon={ClipboardList}>New knowledge check</ButtonLink>
+              <ButtonLink href="/admin/cohorts/new" icon={Plus}>New cohort</ButtonLink>
+            </>
+          ) : (
+            myCourse && <ButtonLink href={`/admin/courses/${myCourse.id}`} icon={ArrowRight}>Manage my course</ButtonLink>
+          )
+        }
+      />
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { label: 'Total Cohorts', value: cohorts.length, icon: Layers, color: 'text-blue-400' },
-          { label: 'Active Courses', value: totalCourses, icon: BookOpen, color: 'text-green-400' },
-          { label: 'Total Students', value: totalStudents, icon: Users, color: 'text-purple-400' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-[#111111] border border-gray-800 p-6 rounded-xl">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-gray-400 text-sm font-medium">{stat.label}</p>
-                <h3 className="text-3xl font-bold text-white mt-1">
-                  {isLoading ? <Loader2 className="animate-spin inline-block" size={24} /> : stat.value}
-                </h3>
-              </div>
-              <div className={`p-3 rounded-lg bg-gray-800/50 ${stat.color}`}>
-                <stat.icon size={24} />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Cohorts Table */}
-      <div className="bg-[#111111] border border-gray-800 rounded-xl overflow-hidden">
-        <div className="p-6 border-b border-gray-800">
-          <h3 className="text-lg font-bold text-white">Active Cohorts</h3>
-        </div>
-        
-        {isLoading ? (
-          <div className="p-12 flex justify-center items-center text-gray-500">
-            <Loader2 className="animate-spin mr-2" />
-            Loading live cohorts from database...
-          </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {superAdmin ? (
+          <StatCard label="Cohorts" value={cohorts.data?.length ?? 0} icon={Layers} loading={cohorts.loading} href="/admin/cohorts" />
         ) : (
-          <table className="w-full text-left">
-            <thead className="bg-[#1A1A1A] text-gray-400 text-xs uppercase tracking-wider">
-              <tr>
-                <th className="px-6 py-4">Cohort Name</th>
-                <th className="px-6 py-4">Dates</th>
-                <th className="px-6 py-4">Students</th>
-                <th className="px-6 py-4">Courses</th>
-                <th className="px-6 py-4">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {cohorts.map((cohort) => (
-                <tr key={cohort.id} className="hover:bg-gray-800/30 transition-colors">
-                  <td className="px-6 py-4 text-white font-medium">{cohort.name}</td>
-                  <td className="px-6 py-4 text-gray-400 text-sm">
-                    {new Date(cohort.startDate).toLocaleDateString()} - {new Date(cohort.endDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 text-gray-400">{cohort._count.students} Students</td>
-                  <td className="px-6 py-4 text-gray-400">{cohort._count.courses} Courses</td>
-                  <td className="px-6 py-4">
-                    <Link 
-                      href={`/admin/cohorts/${cohort.id}`} 
-                      className="text-purple-400 hover:text-purple-300 text-sm font-semibold"
-                    >
-                      View Details
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {cohorts.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    Database is empty! Click "Create Cohort" above to initialize your first academic cycle.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <StatCard label="Materials" value={myCourse?._count?.materials ?? 0} icon={BookOpen} loading={courses.loading} />
         )}
+        <StatCard label={superAdmin ? 'Courses' : 'Knowledge checks'} value={superAdmin ? courseList.length : tests.data?.length ?? 0}
+          icon={superAdmin ? BookOpen : ClipboardList} tone="success" loading={courses.loading} href={superAdmin ? '/admin/courses' : '/admin/tests'} />
+        <StatCard label="Students" value={totalStudents} icon={Users} tone="gold" loading={courses.loading} href="/admin/students" />
+        <StatCard label="Test attempts" value={totalAttempts} icon={Trophy} tone="warning" loading={tests.loading} href="/admin/tests" />
       </div>
-    </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+        {superAdmin ? (
+          <Card padded={false} className="overflow-hidden xl:col-span-2">
+            <div className="p-5 pb-0 sm:p-6 sm:pb-0">
+              <CardHeader title="Cohorts" icon={Layers} action={<ButtonLink href="/admin/cohorts" variant="ghost" size="sm">View all</ButtonLink>} />
+            </div>
+            <DataState loading={cohorts.loading} error={cohorts.error} onRetry={cohorts.reload}>
+              {!cohorts.data?.length ? (
+                <EmptyState icon={Layers} title="No cohorts yet" description="Create your first academic cycle to get started."
+                  action={<ButtonLink href="/admin/cohorts/new" icon={Plus}>Create cohort</ButtonLink>} />
+              ) : (
+                <Table head={['Cohort', 'Dates', 'Students', 'Courses', '']}>
+                  {cohorts.data.map(c => {
+                    const st = cohortStatus(c);
+                    return (
+                      <Tr key={c.id}>
+                        <Td>
+                          <p className="font-medium text-white">{c.name}</p>
+                          <Badge tone={st.tone} className="mt-1">{st.label}</Badge>
+                        </Td>
+                        <Td className="whitespace-nowrap text-muted">{formatDate(c.startDate)} – {formatDate(c.endDate)}</Td>
+                        <Td className="tabular-nums">{c._count?.students ?? 0}</Td>
+                        <Td className="tabular-nums">{c._count?.courses ?? 0}</Td>
+                        <Td className="text-right">
+                          <Link href={`/admin/cohorts/${c.id}`} className="text-sm font-semibold text-brand-soft hover:text-white">Open →</Link>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
+                </Table>
+              )}
+            </DataState>
+          </Card>
+        ) : (
+          <Card className="xl:col-span-2">
+            <CardHeader title="Recent knowledge checks" icon={ClipboardList} action={<ButtonLink href="/admin/tests/new" size="sm" icon={Plus}>New</ButtonLink>} />
+            <DataState loading={tests.loading} error={tests.error} onRetry={tests.reload}>
+              {!tests.data?.length ? (
+                <p className="text-sm text-muted">No knowledge checks for your course yet.</p>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {tests.data.slice(0, 5).map(t => (
+                    <li key={t.id} className="flex items-center justify-between gap-3 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-white">{t.title}</p>
+                        <p className="text-xs text-faint">{plural(t._count?.attempts ?? 0, 'attempt')} · {formatDate(t.createdAt)}</p>
+                      </div>
+                      <Badge tone={t.status === 'PUBLISHED' ? 'success' : 'neutral'}>{t.status === 'PUBLISHED' ? 'Published' : 'Draft'}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </DataState>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader title="Top students" icon={Trophy} action={<ButtonLink href="/leaderboard" variant="ghost" size="sm">Board</ButtonLink>} />
+          <DataState loading={board.loading} error={board.error}>
+            {!board.data?.entries.length ? (
+              <p className="text-sm text-muted">No scores yet.</p>
+            ) : (
+              <ol className="space-y-3">
+                {board.data.entries.map(e => (
+                  <li key={e.id} className="flex items-center gap-3">
+                    <span className="w-5 text-sm font-semibold text-faint tabular-nums">{e.rank}</span>
+                    <Avatar name={e.name} src={e.imageUrl} size={32} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-white">{e.name}</p>
+                      <p className="truncate text-xs text-faint">{e.courseName}</p>
+                    </div>
+                    <span className="text-sm font-bold text-gold tabular-nums">{e.points}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </DataState>
+        </Card>
+      </div>
+    </>
   );
 }

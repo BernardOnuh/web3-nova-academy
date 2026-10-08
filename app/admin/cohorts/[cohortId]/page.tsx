@@ -1,335 +1,217 @@
-// app/admin/cohorts/[cohortId]/page.tsx
+// app/admin/cohorts/[cohortId]/page.tsx — courses, students and tutors in one cohort
 "use client";
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE!;
-
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, BookOpen, Users, ShieldCheck, Loader2, Mail, Trash2 } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { BookOpen, CalendarDays, FileUp, Plus, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
+import { api, errorMessage } from '@/lib/api';
+import { useApi } from '@/lib/use-api';
+import { formatDate, plural } from '@/lib/format';
+import type { Cohort, Course, Student, Tutor } from '@/lib/types';
+import { useFeedback } from '@/components/feedback';
+import { AddStudentModal, BulkStudentsModal } from '@/components/admin/student-forms';
+import {
+  Alert, Avatar, Badge, Button, ButtonLink, Card, DataState, EmptyState, IconButton, Input, Modal, PageHeader, PageLoader, Table, Tabs, Td, Tr,
+} from '@/components/ui';
 
-interface Course { id: string; name: string; cohortId: string; _count?: { students: number }; }
-interface Student { id: string; name: string; email: string; cohortId: string; courseId: string; }
-interface Tutor { id: string; name: string; email: string; courseId: string; }
+type Tab = 'courses' | 'students' | 'tutors';
 
 export default function CohortDetailPage() {
-  const params = useParams();
-  const cohortId = params.cohortId as string;
+  const { cohortId } = useParams<{ cohortId: string }>();
+  const { toast, confirm } = useFeedback();
+  const cohorts = useApi<Cohort[]>('/admin/cohorts');
+  const courses = useApi<Course[]>(`/admin/courses?cohortId=${cohortId}`);
+  const students = useApi<Student[]>(`/admin/students?cohortId=${cohortId}`);
+  const tutors = useApi<Tutor[]>('/admin/admins');
 
-  const [activeTab, setActiveTab] = useState<'courses' | 'students' | 'admins'>('courses');
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [cohortStudents, setCohortStudents] = useState<Student[]>([]);
-  const [cohortTutors, setCohortTutors] = useState<Tutor[]>([]);
-  
-  const [cohortName, setCohortName] = useState<string>("Loading Cohort...");
-  const [isLoading, setIsLoading] = useState(true);
+  const [tab, setTab] = useState<Tab>('courses');
+  const [modal, setModal] = useState<'add' | 'bulk' | 'course' | null>(null);
+  const [courseName, setCourseName] = useState('');
+  const [savingCourse, setSavingCourse] = useState(false);
 
-  // New state variables for adding a custom course
-  const [isAddingCourse, setIsAddingCourse] = useState(false);
-  const [newCourseName, setNewCourseName] = useState('');
-  const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
+  const cohort = cohorts.data?.find(c => c.id === cohortId);
+  const courseList = courses.data ?? [];
+  const courseIds = new Set(courseList.map(c => c.id));
+  const cohortTutors = (tutors.data ?? []).filter(t => courseIds.has(t.courseId));
+  const courseName_ = (id: string) => courseList.find(c => c.id === id)?.name ?? '—';
 
-  useEffect(() => {
-    const fetchCohortData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const headers = { 'Authorization': `Bearer ${token}` };
-
-        // 1. Fetch cohort name
-        const cohortRes = await fetch(`${BASE}/admin/cohorts`, { headers });
-        const cohortsData = await cohortRes.json();
-        const currentCohort = cohortsData.find((c: any) => c.id === cohortId);
-        if (currentCohort) setCohortName(currentCohort.name);
-
-        // 2. Fetch courses & filter for this cohort
-        const courseRes = await fetch(`${BASE}/admin/courses`, { headers });
-        const coursesData = await courseRes.json();
-        let cohortCourseIds: string[] = [];
-        if (Array.isArray(coursesData)) {
-          const filteredCourses = coursesData.filter((c: any) => c.cohortId === cohortId);
-          setCourses(filteredCourses);
-          cohortCourseIds = filteredCourses.map(c => c.id);
-        }
-
-        // 3. Fetch Students & filter for this cohort
-        const studentRes = await fetch(`${BASE}/admin/students`, { headers }).catch(() => null);
-        if (studentRes && studentRes.ok) {
-          const studentData = await studentRes.json();
-          if (Array.isArray(studentData)) {
-            setCohortStudents(studentData.filter((s: any) => s.cohortId === cohortId));
-          }
-        }
-
-        // 4. Fetch Tutors & filter by courses that belong to this cohort
-        const tutorRes = await fetch(`${BASE}/admin/admins`, { headers }).catch(() => null);
-        if (tutorRes && tutorRes.ok) {
-          const tutorData = await tutorRes.json();
-          if (Array.isArray(tutorData)) {
-            setCohortTutors(tutorData.filter((t: any) => cohortCourseIds.includes(t.courseId)));
-          }
-        }
-
-      } catch (error) {
-        console.error("Failed to load cohort details:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (cohortId) fetchCohortData();
-  }, [cohortId]);
-
-  const handleAddCustomCourse = async (e: React.FormEvent) => {
+  const addCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCourseName.trim()) return;
-    setIsSubmittingCourse(true);
+    setSavingCourse(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${BASE}/admin/courses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ name: newCourseName, cohortId: cohortId }),
-      });
-
-      if (!response.ok) throw new Error('Failed to create custom course');
-      const newCourse = await response.json();
-      setCourses([...courses, newCourse]);
-      setNewCourseName('');
-      setIsAddingCourse(false);
-    } catch (error: any) {
-      alert(error.message);
+      const course = await api<Course>('/admin/courses', { body: { name: courseName.trim(), cohortId } });
+      courses.setData(prev => [...(prev ?? []), { ...course, _count: { students: 0 } }]);
+      toast(`${course.name} added`);
+      setCourseName('');
+      setModal(null);
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     } finally {
-      setIsSubmittingCourse(false);
+      setSavingCourse(false);
     }
   };
 
-  const getCourseName = (id: string) => courses.find(c => c.id === id)?.name || "Unknown Course";
-
-  const handleDeleteCourse = async (courseId: string) => {
-    if (!confirm('Delete this course? This will also remove its materials, assignments, and sessions.')) return;
+  const deleteCourse = async (c: Course) => {
+    if (!(await confirm({ title: `Delete ${c.name}?`, description: 'This also removes its materials, assignments and sessions.', confirmLabel: 'Delete course', danger: true }))) return;
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${BASE}/admin/courses/${courseId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
-      setCourses(courses.filter(c => c.id !== courseId));
-    } catch (err: any) { alert(err.message); }
+      await api(`/v2/admin/courses/${c.id}`, { method: 'DELETE' });
+      courses.setData(prev => (prev ?? []).filter(x => x.id !== c.id));
+      toast(`${c.name} deleted`);
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    }
   };
 
-  const handleDeleteStudent = async (studentId: string) => {
-    if (!confirm('Remove this student from the cohort?')) return;
+  const removeStudent = async (s: Student) => {
+    if (!(await confirm({ title: `Remove ${s.name}?`, confirmLabel: 'Remove', danger: true }))) return;
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${BASE}/admin/students/${studentId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
-      setCohortStudents(cohortStudents.filter(s => s.id !== studentId));
-    } catch (err: any) { alert(err.message); }
+      await api(`/admin/students/${s.id}`, { method: 'DELETE' });
+      students.setData(prev => (prev ?? []).filter(x => x.id !== s.id));
+      toast(`${s.name} removed`);
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    }
   };
 
-  const handleDeleteTutor = async (tutorId: string) => {
-    if (!confirm('Remove this tutor?')) return;
-    try {
-      const token = localStorage.getItem('token');
-      await fetch(`${BASE}/admin/admins/${tutorId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
-      setCohortTutors(cohortTutors.filter(t => t.id !== tutorId));
-    } catch (err: any) { alert(err.message); }
-  };
+  if (cohorts.loading) return <PageLoader />;
+  if (!cohort) return <Alert>{cohorts.error ?? 'Cohort not found'}</Alert>;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
-      <div>
-        <Link href="/admin" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors w-fit mb-4">
-          <ArrowLeft size={20} />
-          <span>Back to Overview</span>
-        </Link>
-        <h2 className="text-3xl font-bold text-white">{cohortName}</h2>
-        <p className="text-gray-400">Manage courses, students, and tutors for this cohort.</p>
-      </div>
-
-      {/* Tabs Navigation */}
-      <div className="flex border-b border-gray-800 overflow-x-auto hide-scrollbar">
-        {[
-          { id: 'courses', label: 'Courses', icon: BookOpen },
-          { id: 'students', label: `Students (${cohortStudents.length})`, icon: Users },
-          { id: 'admins', label: `Assigned Tutors (${cohortTutors.length})`, icon: ShieldCheck }
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors border-b-2 whitespace-nowrap ${
-              activeTab === tab.id 
-                ? 'border-purple-500 text-purple-400 bg-purple-500/5' 
-                : 'border-transparent text-gray-400 hover:text-white hover:bg-gray-800/50'
-            }`}
-          >
-            <tab.icon size={18} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content Areas */}
-      <div className="bg-[#111111] border border-gray-800 rounded-xl min-h-[400px]">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-[400px] text-gray-500">
-            <Loader2 className="animate-spin mb-4" size={32} />
-            <p>Loading cohort data...</p>
-          </div>
-        ) : (
+    <>
+      <PageHeader
+        back={{ href: '/admin/cohorts', label: 'Cohorts' }}
+        title={cohort.name}
+        description={<span className="inline-flex items-center gap-1.5"><CalendarDays size={14} /> {formatDate(cohort.startDate)} – {formatDate(cohort.endDate)}</span>}
+        actions={
           <>
-            {/* COURSES TAB */}
-            {activeTab === 'courses' && (
-              <div className="p-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-bold text-white">Curriculum</h3>
-                  <button onClick={() => setIsAddingCourse(!isAddingCourse)} className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm transition-colors border border-gray-700">
-                    {isAddingCourse ? "Cancel" : "+ Add Custom Course"}
-                  </button>
-                </div>
-
-                {isAddingCourse && (
-                  <form onSubmit={handleAddCustomCourse} className="mb-6 bg-[#0A0A0A] p-4 rounded-xl border border-purple-500/30 flex gap-4 items-end">
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-gray-400 mb-1 uppercase">Course Name</label>
-                      <input type="text" required placeholder="e.g., Advanced Cryptography" className="w-full bg-[#111111] border border-gray-800 rounded-lg px-4 py-2 text-white outline-none" value={newCourseName} onChange={(e) => setNewCourseName(e.target.value)} />
-                    </div>
-                    <button type="submit" disabled={isSubmittingCourse} className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-6 py-2 rounded-lg flex items-center justify-center min-w-[140px]">
-                      {isSubmittingCourse ? <Loader2 className="animate-spin" size={18} /> : "Save Course"}
-                    </button>
-                  </form>
-                )}
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {courses.map(course => (
-                    <div key={course.id} className="bg-[#0A0A0A] border border-gray-800 p-5 rounded-xl hover:border-purple-500/50 transition-colors group relative overflow-hidden flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-400">
-                            <BookOpen size={20} />
-                          </div>
-                          <button
-                            onClick={() => handleDeleteCourse(course.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                        <h4 className="text-white font-bold mb-1">{course.name}</h4>
-                        <p className="text-sm text-gray-500 mb-4">
-                          Course ID: {course.id.substring(0,8)}...
-                        </p>
-                      </div>
-                      <Link href={`/admin/courses/${course.id}`} className="text-purple-400 text-sm font-medium hover:text-purple-300 w-fit">
-                        Manage Course &rarr;
-                      </Link>
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-colors" />
-                    </div>
-                  ))}
-                  {courses.length === 0 && (
-                    <div className="col-span-full py-12 text-center text-gray-500">No courses found.</div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* STUDENTS TAB */}
-            {activeTab === 'students' && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                {cohortStudents.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-[#1A1A1A] text-gray-400 text-xs uppercase tracking-wider">
-                        <tr>
-                          <th className="px-6 py-4">Student Name</th>
-                          <th className="px-6 py-4">Email</th>
-                          <th className="px-6 py-4">Enrolled Course</th>
-                          <th className="px-6 py-4"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800">
-                        {cohortStudents.map((student) => (
-                          <tr key={student.id} className="hover:bg-gray-800/30 transition-colors group">
-                            <td className="px-6 py-4 text-white font-medium flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center text-xs font-bold">
-                                {student.name.charAt(0).toUpperCase()}
-                              </div>
-                              {student.name}
-                            </td>
-                            <td className="px-6 py-4 text-gray-400 text-sm flex items-center gap-2">
-                              <Mail size={14} /> {student.email}
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="px-3 py-1 bg-purple-500/10 text-purple-400 text-xs rounded-full border border-purple-500/20">
-                                {getCourseName(student.courseId)}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <button onClick={() => handleDeleteStudent(student.id)} className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all">
-                                <Trash2 size={15} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="p-12 text-center text-gray-500 flex flex-col items-center">
-                    <Users size={48} className="mb-4 text-gray-700" />
-                    <p>No students enrolled in this cohort yet.</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ADMINS TAB */}
-            {activeTab === 'admins' && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                {cohortTutors.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-[#1A1A1A] text-gray-400 text-xs uppercase tracking-wider">
-                        <tr>
-                          <th className="px-6 py-4">Tutor Name</th>
-                          <th className="px-6 py-4">Email</th>
-                          <th className="px-6 py-4">Assigned Subject</th>
-                          <th className="px-6 py-4"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800">
-                        {cohortTutors.map((tutor) => (
-                          <tr key={tutor.id} className="hover:bg-gray-800/30 transition-colors group">
-                            <td className="px-6 py-4 text-white font-medium flex items-center gap-3">
-                               <div className="w-8 h-8 rounded-full bg-green-500/10 text-green-400 flex items-center justify-center text-xs font-bold">
-                                {tutor.name.charAt(0).toUpperCase()}
-                              </div>
-                              {tutor.name}
-                            </td>
-                            <td className="px-6 py-4 text-gray-400 text-sm flex items-center gap-2">
-                              <Mail size={14} /> {tutor.email}
-                            </td>
-                            <td className="px-6 py-4 text-purple-400 font-medium text-sm">
-                              {getCourseName(tutor.courseId)}
-                            </td>
-                            <td className="px-6 py-4">
-                              <button onClick={() => handleDeleteTutor(tutor.id)} className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all">
-                                <Trash2 size={15} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="p-12 text-center text-gray-500 flex flex-col items-center">
-                    <ShieldCheck size={48} className="mb-4 text-gray-700" />
-                    <p>No tutors have been assigned to courses in this cohort yet.</p>
-                  </div>
-                )}
-              </div>
-            )}
+            <Button variant="secondary" icon={FileUp} onClick={() => setModal('bulk')}>Bulk import</Button>
+            <Button icon={UserPlus} onClick={() => setModal('add')}>Enrol student</Button>
           </>
-        )}
-      </div>
-    </div>
+        }
+      />
+
+      <Tabs
+        className="mb-6"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'courses', label: 'Courses', icon: BookOpen, count: courseList.length },
+          { id: 'students', label: 'Students', icon: Users, count: students.data?.length ?? 0 },
+          { id: 'tutors', label: 'Tutors', icon: ShieldCheck, count: cohortTutors.length },
+        ]}
+      />
+
+      {tab === 'courses' && (
+        <DataState loading={courses.loading} error={courses.error} onRetry={courses.reload}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {courseList.map(c => (
+              <Card key={c.id} className="flex flex-col">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="inline-flex size-10 items-center justify-center rounded-xl bg-brand/10 text-brand-soft"><BookOpen size={20} /></span>
+                  <IconButton icon={Trash2} label={`Delete ${c.name}`} tone="danger" onClick={() => deleteCourse(c)} />
+                </div>
+                <p className="mt-4 font-semibold text-white">{c.name}</p>
+                <p className="mt-1 text-sm text-muted">
+                  {plural(c._count?.students ?? 0, 'student')} · {plural(c._count?.admins ?? 0, 'tutor')}
+                </p>
+                <Link href={`/admin/courses/${c.id}`} className="mt-4 text-sm font-semibold text-brand-soft hover:text-white">Manage course →</Link>
+              </Card>
+            ))}
+            <button
+              onClick={() => setModal('course')}
+              className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line-strong text-muted transition-colors hover:border-brand hover:text-white"
+            >
+              <Plus size={22} /> Add course
+            </button>
+          </div>
+        </DataState>
+      )}
+
+      {tab === 'students' && (
+        <Card padded={false} className="overflow-hidden">
+          <DataState loading={students.loading} error={students.error} onRetry={students.reload}>
+            {!students.data?.length ? (
+              <EmptyState icon={Users} title="No students in this cohort yet"
+                action={<Button icon={UserPlus} onClick={() => setModal('add')}>Enrol student</Button>} />
+            ) : (
+              <Table head={['Student', 'Course', '']}>
+                {students.data.map(s => (
+                  <Tr key={s.id}>
+                    <Td>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={s.name} size={32} />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-white">{s.name}</p>
+                          <p className="truncate text-xs text-faint">{s.email}</p>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td><Badge tone="brand">{courseName_(s.courseId)}</Badge></Td>
+                    <Td className="text-right"><IconButton icon={Trash2} label={`Remove ${s.name}`} tone="danger" onClick={() => removeStudent(s)} /></Td>
+                  </Tr>
+                ))}
+              </Table>
+            )}
+          </DataState>
+        </Card>
+      )}
+
+      {tab === 'tutors' && (
+        <Card padded={false} className="overflow-hidden">
+          <DataState loading={tutors.loading} error={tutors.error} onRetry={tutors.reload}>
+            {cohortTutors.length === 0 ? (
+              <EmptyState icon={ShieldCheck} title="No tutors assigned yet" action={<ButtonLink href="/admin/tutors" icon={UserPlus}>Add a tutor</ButtonLink>} />
+            ) : (
+              <Table head={['Tutor', 'Course']}>
+                {cohortTutors.map(t => (
+                  <Tr key={t.id}>
+                    <Td>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={t.name} size={32} />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-white">{t.name}</p>
+                          <p className="truncate text-xs text-faint">{t.email}</p>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td><Badge tone="brand">{courseName_(t.courseId)}</Badge></Td>
+                  </Tr>
+                ))}
+              </Table>
+            )}
+          </DataState>
+        </Card>
+      )}
+
+      <AddStudentModal
+        open={modal === 'add'}
+        onClose={() => setModal(null)}
+        cohorts={cohorts.data ?? []}
+        courses={courseList}
+        cohortId={cohortId}
+        onCreated={s => students.setData(prev => [s, ...(prev ?? [])])}
+      />
+      <BulkStudentsModal
+        open={modal === 'bulk'}
+        onClose={() => setModal(null)}
+        cohorts={cohorts.data ?? []}
+        courses={courseList}
+        cohortId={cohortId}
+        onDone={students.reload}
+      />
+      <Modal
+        open={modal === 'course'}
+        onClose={() => setModal(null)}
+        title="Add course"
+        description={`Adds a course to ${cohort.name}. You can set its description and image from Courses.`}
+        size="sm"
+        footer={<><Button variant="secondary" onClick={() => setModal(null)}>Cancel</Button><Button type="submit" form="add-course" loading={savingCourse}>Add course</Button></>}
+      >
+        <form id="add-course" onSubmit={addCourse}>
+          <Input label="Course name" required autoFocus value={courseName} onChange={e => setCourseName(e.target.value)} placeholder="e.g. Advanced Cryptography" />
+        </form>
+      </Modal>
+    </>
   );
 }

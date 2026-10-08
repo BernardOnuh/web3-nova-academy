@@ -1,24 +1,25 @@
 // app/student/grades/page.tsx
 "use client";
 
-import { useEffect, useState } from 'react';
-import { GraduationCap, Loader2, ExternalLink, CheckCircle2, Clock } from 'lucide-react';
+import { CheckCircle2, Clock, ExternalLink, GraduationCap } from 'lucide-react';
+import { useApi } from '@/lib/use-api';
+import { formatDate, scoreTone } from '@/lib/format';
+import { Badge, Card, CardHeader, DataState, EmptyState, PageHeader, Table, Td, Tr } from '@/components/ui';
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE!;
-
+// grade / feedback / score are optional — the API may withhold them until results are released
 interface AssignmentSubmission {
   id: string;
-  cloudinaryUrl: string;
   submittedAt: string;
-  grade: number | null;
-  feedback: string | null;
-  assignment: { title: string; dueDate: string };
+  cloudinaryUrl?: string | null;
+  grade?: number | null;
+  feedback?: string | null;
+  assignment: { title: string };
 }
 
 interface AssessmentResult {
   id: string;
   submittedAt: string;
-  score: number | null;
+  score?: number | null;
   assessment: { title: string; type: string };
 }
 
@@ -27,136 +28,66 @@ interface Grades {
   assessments: AssessmentResult[];
 }
 
-function ScoreBadge({ score }: { score: number | null }) {
-  if (score === null) {
-    return (
-      <span className="text-xs text-gray-500 flex items-center gap-1">
-        <Clock size={12} /> Pending
-      </span>
-    );
-  }
-  const color = score >= 70 ? 'text-green-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400';
-  return <span className={`font-bold text-lg ${color}`}>{score}%</span>;
+function Score({ value }: { value?: number | null }) {
+  if (value === null || value === undefined) return <Badge><Clock size={11} /> Pending</Badge>;
+  return <Badge tone={scoreTone(value)} className="text-sm font-bold tabular-nums">{value}%</Badge>;
 }
 
 export default function StudentGradesPage() {
-  const [grades, setGrades] = useState<Grades>({ assignments: [], assessments: [] });
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${BASE}/student/grades`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(data => { if (data.assignments || data.assessments) setGrades(data); })
-      .catch(console.error)
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-20 text-gray-500">
-        <Loader2 className="animate-spin mr-2" size={24} /> Loading grades...
-      </div>
-    );
-  }
+  const grades = useApi<Grades>('/student/grades');
+  const assignments = grades.data?.assignments ?? [];
+  const assessments = grades.data?.assessments ?? [];
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500">
-      <div>
-        <h2 className="text-3xl font-bold text-white">My Grades</h2>
-        <p className="text-gray-400">Assignment scores and assessment results.</p>
-      </div>
+    <>
+      <PageHeader title="Grades" description="Assignment scores and assessment results." />
 
-      {/* Assignments */}
-      <section>
-        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-          <GraduationCap size={22} className="text-blue-400" /> Assignments
-        </h3>
-        {grades.assignments.length === 0 ? (
-          <div className="bg-[#111111] border border-gray-800 rounded-xl p-10 text-center text-gray-500">
-            No assignment submissions yet.
-          </div>
-        ) : (
-          <div className="bg-[#111111] border border-gray-800 rounded-xl overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-[#1A1A1A] text-gray-400 text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-4">Assignment</th>
-                  <th className="px-6 py-4">Submitted</th>
-                  <th className="px-6 py-4">Grade</th>
-                  <th className="px-6 py-4">Feedback</th>
-                  <th className="px-6 py-4">File</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {grades.assignments.map(sub => (
-                  <tr key={sub.id} className="hover:bg-gray-800/30 transition-colors">
-                    <td className="px-6 py-4 text-white font-medium">{sub.assignment.title}</td>
-                    <td className="px-6 py-4 text-gray-400 text-sm">
-                      {new Date(sub.submittedAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <ScoreBadge score={sub.grade} />
-                    </td>
-                    <td className="px-6 py-4 text-gray-400 text-sm max-w-xs">
-                      {sub.feedback || <span className="text-gray-700">—</span>}
-                    </td>
-                    <td className="px-6 py-4">
-                      <a href={sub.cloudinaryUrl} target="_blank" rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 transition-colors">
-                        <ExternalLink size={16} />
-                      </a>
-                    </td>
-                  </tr>
+      <DataState loading={grades.loading} error={grades.error} onRetry={grades.reload}>
+        <div className="space-y-6">
+          <Card padded={false} className="overflow-hidden">
+            <div className="p-5 pb-0 sm:p-6 sm:pb-0"><CardHeader title="Assignments" icon={GraduationCap} /></div>
+            {assignments.length === 0 ? (
+              <EmptyState icon={GraduationCap} title="No assignment submissions yet" className="py-10" />
+            ) : (
+              <Table head={['Assignment', 'Submitted', 'Grade', 'Feedback', 'File']}>
+                {assignments.map(s => (
+                  <Tr key={s.id}>
+                    <Td className="font-medium text-white">{s.assignment.title}</Td>
+                    <Td className="whitespace-nowrap text-muted">{formatDate(s.submittedAt)}</Td>
+                    <Td><Score value={s.grade} /></Td>
+                    <Td className="max-w-xs text-muted">{s.feedback || <span className="text-faint">—</span>}</Td>
+                    <Td>
+                      {s.cloudinaryUrl ? (
+                        <a href={s.cloudinaryUrl} target="_blank" rel="noopener noreferrer" aria-label="Open submitted file" className="text-brand-soft hover:text-white">
+                          <ExternalLink size={16} />
+                        </a>
+                      ) : <span className="text-faint">—</span>}
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+              </Table>
+            )}
+          </Card>
 
-      {/* Assessments */}
-      <section>
-        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-          <CheckCircle2 size={22} className="text-purple-400" /> Assessments
-        </h3>
-        {grades.assessments.length === 0 ? (
-          <div className="bg-[#111111] border border-gray-800 rounded-xl p-10 text-center text-gray-500">
-            No assessment results yet.
-          </div>
-        ) : (
-          <div className="bg-[#111111] border border-gray-800 rounded-xl overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-[#1A1A1A] text-gray-400 text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-4">Assessment</th>
-                  <th className="px-6 py-4">Type</th>
-                  <th className="px-6 py-4">Submitted</th>
-                  <th className="px-6 py-4">Score</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {grades.assessments.map(res => (
-                  <tr key={res.id} className="hover:bg-gray-800/30 transition-colors">
-                    <td className="px-6 py-4 text-white font-medium">{res.assessment.title}</td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded-md border border-gray-700 uppercase">
-                        {res.assessment.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-400 text-sm">
-                      {new Date(res.submittedAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <ScoreBadge score={res.score} />
-                    </td>
-                  </tr>
+          <Card padded={false} className="overflow-hidden">
+            <div className="p-5 pb-0 sm:p-6 sm:pb-0"><CardHeader title="Assessments" icon={CheckCircle2} /></div>
+            {assessments.length === 0 ? (
+              <EmptyState icon={CheckCircle2} title="No assessment results yet" className="py-10" />
+            ) : (
+              <Table head={['Assessment', 'Type', 'Submitted', 'Score']}>
+                {assessments.map(r => (
+                  <Tr key={r.id}>
+                    <Td className="font-medium text-white">{r.assessment.title}</Td>
+                    <Td><Badge className="uppercase">{r.assessment.type}</Badge></Td>
+                    <Td className="whitespace-nowrap text-muted">{formatDate(r.submittedAt)}</Td>
+                    <Td><Score value={r.score} /></Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </div>
+              </Table>
+            )}
+          </Card>
+        </div>
+      </DataState>
+    </>
   );
 }

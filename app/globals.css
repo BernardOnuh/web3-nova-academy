@@ -1,31 +1,73 @@
 @import "tailwindcss";
 
+/* Web3Nova design tokens — exposed as Tailwind utilities (bg-surface, text-brand, border-line, …) */
+@theme {
+  --color-ink: #08090D;          /* page background */
+  --color-surface: #10131B;      /* cards */
+  --color-surface-2: #161A24;    /* raised / table headers / inputs */
+  --color-line: #232838;         /* borders */
+  --color-line-strong: #33394C;
+  --color-muted: #8A93A8;        /* secondary text */
+  --color-faint: #5B6378;        /* tertiary text */
+
+  --color-brand: #2389DB;        /* Web3Nova blue */
+  --color-brand-strong: #1F6FD6;
+  --color-brand-soft: #7CC0F5;
+  --color-gold: #F5B731;         /* Web3Nova gold */
+  --color-gold-strong: #E8A317;
+
+  --color-success: #34D399;
+  --color-warning: #FBBF24;
+  --color-danger: #F87171;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 :root {
-  --background: #0B0E14; /* Deep space dark */
-  --foreground: #E2E8F0;
+  color-scheme: dark;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  /* This creates that subtle Web3-style glowing grid/gradient background */
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
-  background-attachment: fixed;
+  background-color: var(--color-ink);
+  color: #E2E8F0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom scrollbar for a polished look */
-::-webkit-scrollbar {
-  width: 8px;
+/* Ambient brand glow behind the app shells */
+.app-glow {
+  background:
+    radial-gradient(60rem 30rem at 0% -10%, rgba(35, 137, 219, 0.12), transparent 60%),
+    radial-gradient(40rem 24rem at 100% 0%, rgba(245, 183, 49, 0.06), transparent 60%);
 }
-::-webkit-scrollbar-track {
-  background: #0B0E14; 
+
+/* Glass panel used for dashboard cards — calmer cousin of .liquid-card */
+.glass {
+  background: linear-gradient(160deg, rgba(22, 26, 36, 0.85), rgba(16, 19, 27, 0.92));
+  border: 1px solid var(--color-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
-::-webkit-scrollbar-thumb {
-  background: #1E293B; 
-  border-radius: 4px;
+
+/* Native date pickers / file inputs in dark mode */
+input[type="date"], input[type="datetime-local"] { color-scheme: dark; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--color-ink); }
+::-webkit-scrollbar-thumb { background: #1E2433; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2C3446; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #334155; 
+.animate-fade-up { animation: fade-up 0.35s ease-out both; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.animate-toast { animation: toast-in 0.2s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up, .animate-toast { animation: none; }
 }
