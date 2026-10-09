@@ -49,19 +49,20 @@ async function loadRoster(password: string): Promise<Roster> {
 function messageFor(s: Student, portal: string) {
   const first = s.name.split(' ')[0];
   const password = s.password ?? 'the password you created when you registered';
+  // WhatsApp renders *text* as bold
   return [
-    `Hi ${first}, from the Web3Nova Team 👋`,
+    `Hi ${first}, from the *Web3Nova Team*`,
     '',
-    'You are to log in and perform this task within 24 hours:',
+    'You are to log in and perform this task *within 24 hours*:',
     '',
-    `🔗 Portal: ${portal}/login`,
-    `👤 Username: ${s.studentName}`,
-    `🔑 Password: ${password}`,
+    `*Portal:* ${portal}/login`,
+    `*Username:* ${s.studentName}`,
+    `*Password:* ${password}`,
     '',
-    '✅ Complete the welcome tour and set up your profile',
-    '✅ Go to the WhatsApp group and share the pinned post with your friends',
+    '1. Complete the welcome tour and set up your profile',
+    '2. Go to the WhatsApp group and share the pinned post with your friends',
     '',
-    'Access not used within 24 hours will be revoked.',
+    '*Access not used within 24 hours will be revoked.*',
   ].join('\n');
 }
 
