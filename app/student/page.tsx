@@ -117,7 +117,7 @@ export default function StudentDashboard() {
                   ? `+${INVITE_POINTS} points land as soon as an admin approves it.`
                   : invite.data.state === 'REJECTED'
                     ? 'Your last proof was not accepted — send a new screenshot.'
-                    : 'Invite friends to the 7-day boot camp: follow the instructions in the WhatsApp group, then send proof.'}
+                    : 'Go to the WhatsApp group, share the pinned post with your friends, then send proof.'}
               </p>
             </div>
             {invite.data.state !== 'PENDING' && <ButtonLink href="/student/invite" icon={ArrowRight}>Invite friends</ButtonLink>}

@@ -49,8 +49,8 @@ export default function InvitePage() {
         )}
 
         <div className="space-y-3">
-          <Step n={1} title="Go to the WhatsApp group and follow the instructions">
-            <p>The boot camp flier, link and steps for inviting friends are in the group.</p>
+          <Step n={1} title="Go to the WhatsApp group">
+            <p>Share the pinned post with your friends.</p>
             <a href={WHATSAPP_GROUP_URL} target="_blank" rel="noopener noreferrer"
               className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-[#25D366] px-4 text-sm font-semibold text-black hover:brightness-95">
               <ExternalLink size={16} /> Open the group

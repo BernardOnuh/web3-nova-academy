@@ -688,8 +688,8 @@ export default function WelcomeStory({ initial }: { initial: OnboardingStatus })
             <li className="rise flex items-start gap-3 rounded-2xl bg-black/30 p-4 backdrop-blur" style={d(450)}>
               <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-black">1</span>
               <div className="min-w-0 flex-1">
-                <p className="font-bold">Go to the group and follow the instructions</p>
-                <p className="mt-1 text-sm text-white/80">Invite your friends using the flier and link shared there.</p>
+                <p className="font-bold">Go to the WhatsApp group</p>
+                <p className="mt-1 text-sm text-white/80">Share the pinned post with your friends.</p>
                 <a href={WHATSAPP_GROUP_URL} target="_blank" rel="noopener noreferrer"
                   className="mt-2 inline-flex h-11 items-center gap-2 rounded-full bg-[#25D366] px-5 text-sm font-black text-black">
                   <ExternalLink size={16} /> Open WhatsApp group
