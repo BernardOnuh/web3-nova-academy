@@ -197,3 +197,54 @@ export interface AdminProof extends TaskProof {
   student: { id: string; name: string; studentName: string | null; imageUrl: string | null; points: number; studentCourse: { name: string } | null };
   reviewedBy: { name: string } | null;
 }
+
+/** Course final test: timed MCQ → practical → earn / certificate / bootcamp (GET /v2/exams/:id) */
+export type ExamStage =
+  | 'NOT_STARTED' | 'MCQ' | 'PRACTICAL' | 'ASK_EARN' | 'JOIN_GROUP' | 'ASK_CERTIFICATE' | 'CERTIFICATE' | 'BOOTCAMP';
+
+export interface ExamView {
+  id: string;
+  title: string;
+  description: string | null;
+  course: { id: string; name: string } | null;
+  questionsCount: number;
+  secondsPerQuestion: number;
+  practicalPrompt: string | null;
+  stage: ExamStage;
+  score: number | null;
+  practicalUrl: string | null;
+  wantsToEarn: boolean | null;
+  wantsCertificate: boolean | null;
+  certificate: { code: string; issuedAt: string } | null;
+  /** only the question on screen, never the whole paper */
+  question: { index: number; q: string; options: string[]; secondsLeft: number } | null;
+  /** list endpoint only */
+  open?: boolean;
+  closesAt?: string | null;
+}
+
+/** GET /v2/exams/certificates/:code (public) */
+export interface PublicCertificate {
+  code: string;
+  issuedAt: string;
+  name: string;
+  course: string;
+  cohort: string | null;
+}
+
+/** GET /v2/exams/admin/results */
+export interface ExamResult {
+  id: string;
+  student: { id: string; name: string; email: string; studentName: string | null; imageUrl: string | null };
+  test: { id: string; title: string; course: string | null };
+  stage: ExamStage;
+  score: number | null;
+  questionsCount: number;
+  practicalUrl: string | null;
+  practicalNote: string | null;
+  wantsToEarn: boolean | null;
+  joinedGroupAt: string | null;
+  wantsCertificate: boolean | null;
+  certificate: { code: string; postUrl: string | null; platform: string | null; issuedAt: string } | null;
+  startedAt: string;
+}

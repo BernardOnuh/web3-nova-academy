@@ -68,6 +68,33 @@ input[type="date"], input[type="datetime-local"] { color-scheme: dark; }
 }
 .animate-toast { animation: toast-in 0.2s ease-out both; }
 
+/* Final test: confetti, timer tick, answer pop, certificate shine */
+@keyframes confetti-fall {
+  0%   { transform: translate3d(0, 0, 0) rotate(var(--rot)); opacity: 1; }
+  100% { transform: translate3d(var(--drift), 105vh, 0) rotate(calc(var(--rot) + 720deg)); opacity: 0.8; }
+}
+.confetti { animation: confetti-fall 3s cubic-bezier(.2,.6,.4,1) both; }
+
+@keyframes tick { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.animate-tick { animation: tick 1s ease-in-out infinite; }
+
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.92); }
+  60%  { opacity: 1; transform: scale(1.03); }
+  100% { transform: none; }
+}
+.animate-pop-in { animation: pop-in 0.45s cubic-bezier(.2,.8,.3,1.2) both; }
+
+@keyframes shine { from { transform: translateX(-120%) skewX(-20deg); } to { transform: translateX(220%) skewX(-20deg); } }
+.shine { position: relative; overflow: hidden; }
+.shine::after {
+  content: ''; position: absolute; inset: 0; width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  animation: shine 2.8s ease-in-out 0.6s infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-up, .animate-toast { animation: none; }
+  .animate-fade-up, .animate-toast, .animate-tick, .animate-pop-in { animation: none; }
+  .confetti { display: none; }
+  .shine::after { display: none; }
 }

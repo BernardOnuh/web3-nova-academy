@@ -2,7 +2,7 @@
 "use client";
 
 import {
-  BookOpen, CheckSquare, Clock, FileText, Gift, GraduationCap, LayoutDashboard, Target, Trophy, UserCircle,
+  Award, BookOpen, CheckSquare, Clock, FileText, Gift, GraduationCap, LayoutDashboard, Target, Trophy, UserCircle,
 } from 'lucide-react';
 import AppShell, { type NavSection } from '@/components/app-shell';
 import OnboardingGate from '@/components/onboarding-gate';
@@ -12,6 +12,7 @@ const NAV: NavSection[] = [
     items: [
       { label: 'Dashboard', href: '/student', icon: LayoutDashboard, exact: true },
       { label: 'Knowledge Check', href: '/student/diagnostic', icon: Target },
+      { label: 'Final Test', href: '/student/exam', icon: Award },
       { label: 'Library', href: '/student/materials', icon: BookOpen },
       { label: 'Leaderboard', href: '/student/leaderboard', icon: Trophy },
       { label: 'Invite & earn', href: '/student/invite', icon: Gift },
